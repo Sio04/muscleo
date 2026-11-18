@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09090b">
+  <meta name="description" content="MUSCLEO — génère ta séance, trouve des alternatives et suis tes performances.">
+  <title>MUSCLEO — Ton entraînement, à ton niveau</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #09090b;
+      --panel: #18181b;
+      --panel-2: #202024;
+      --line: rgba(255,255,255,.09);
+      --muted: #a1a1aa;
+      --blue: #38bdf8;
+      --orange: #f97316;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: #f4f7f5;
+      background:
+        radial-gradient(ellipse at 88% -8%, rgba(56,189,248,.12), transparent 33rem),
+        var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button, input { font: inherit; }
+    button { touch-action: manipulation; }
+    .shell { width: min(100% - 32px, 1080px); margin-inline: auto; }
+    .eyebrow { color: var(--blue); font-size: .68rem; font-weight: 800; letter-spacing: .17em; text-transform: uppercase; }
+    .panel { background: linear-gradient(145deg, rgba(24,24,27,.98), rgba(18,18,21,.98)); border: 1px solid var(--line); border-radius: 22px; }
+    .soft-line { border-color: var(--line); }
+    .level-btn, .group-btn {
+      min-height: 48px; border: 1px solid var(--line); background: rgba(255,255,255,.035);
+      border-radius: 14px; color: #c2ccc6; font-size: .88rem; font-weight: 700; transition: .18s ease;
+    }
+    .level-btn:hover, .group-btn:hover { border-color: rgba(56,189,248,.5); color: white; }
+    .level-btn[aria-pressed="true"] {
+      color: #08202b; background: var(--blue); border-color: var(--blue);
+      box-shadow: 0 0 25px rgba(56,189,248,.17);
+    }
+    .group-btn[aria-pressed="true"] {
+      color: white; background: rgba(56,189,248,.13); border-color: rgba(56,189,248,.7);
+      box-shadow: inset 0 0 0 1px rgba(56,189,248,.12);
+    }
+    .primary-btn {
+      min-height: 56px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      color: #08202b; background: var(--blue); border: 0; border-radius: 15px; font-weight: 900;
+      box-shadow: 0 9px 28px rgba(56,189,248,.18); transition: transform .16s ease, filter .16s ease;
+    }
+    .primary-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .primary-btn:disabled { cursor: not-allowed; filter: saturate(.55); opacity: .48; transform: none; }
+    .primary-btn:active, .orange-btn:active { transform: scale(.985); }
+    .orange-btn {
+      min-height: 48px; background: rgba(249,115,22,.12); color: #ffab70;
+      border: 1px solid rgba(249,115,22,.42); border-radius: 13px; font-weight: 800; transition: .16s ease;
+    }
+    .orange-btn:hover { background: rgba(249,115,22,.2); border-color: var(--orange); color: #ffd0ad; }
+    .step-btn {
+      width: 48px; height: 48px; border-radius: 13px; border: 1px solid var(--line);
+      background: rgba(255,255,255,.06); color: #f4f7f5; font-size: 1.3rem; font-weight: 700;
+    }
+    .step-btn:hover { border-color: rgba(56,189,248,.55); color: var(--blue); }
+    .step-btn:disabled { cursor: not-allowed; opacity: .35; }
+    .exercise-card { animation: card-in .38s both; }
+    @keyframes card-in { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .swap-in { animation: swap-in .35s both; }
+    @keyframes swap-in { 0% { opacity: .25; transform: translateX(14px) scale(.99); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
+    .check-input { accent-color: var(--blue); width: 22px; height: 22px; }
+    .validated-card { border-color: rgba(56,189,248,.52) !important; background: linear-gradient(145deg, rgba(12,43,58,.66), rgba(18,18,21,.98)); }
+    .focus-ring:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid rgba(56,189,248,.75); outline-offset: 3px; }
+    .dialog-backdrop { background: rgba(0,0,0,.76); backdrop-filter: blur(8px); }
+    .toast { animation: toast-in .22s ease-out both; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .progress-track { background: rgba(255,255,255,.09); }
+    .progress-fill { background: linear-gradient(90deg, #0ea5e9, #38bdf8); transition: width .5s ease; }
+    .timer-done { border-color: rgba(56,189,248,.8) !important; box-shadow: 0 0 30px rgba(56,189,248,.22); }
+    ::selection { background: rgba(56,189,248,.35); }
+    @media (min-width: 640px) { .shell { width: min(100% - 48px, 1080px); } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="shell pt-5 sm:pt-7">
+    <div class="flex items-center justify-between gap-4">
+      <a href="#" class="flex items-center gap-3 no-underline text-white" aria-label="MUSCLEO, accueil">
+        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-sky-400 text-xl font-black text-sky-950 shadow-lg shadow-sky-950/40">M</span>
+        <span>
+          <span class="block text-sm font-black tracking-[.2em]">MUSCLEO</span>
+          <span class="block text-[10px] font-bold tracking-[.16em] text-zinc-500">ENTRAÎNEMENT INTELLIGENT</span>
+        </span>
+      </a>
+      <div class="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[.035] px-3 py-2 text-xs font-semibold text-zinc-400 sm:flex">
+        <span class="h-2 w-2 rounded-full bg-sky-400 shadow-[0_0_10px_#38bdf8]"></span>
+        Prêt quand tu l'es
+      </div>
+    </div>
+  </header>
+
+  <main class="shell pb-72 pt-9 sm:pt-12">
+    <section class="mb-8 sm:mb-10">
+      <p class="eyebrow mb-3">Ton entraînement, ta progression</p>
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 class="max-w-3xl text-4xl font-black leading-[1.02] tracking-tight sm:text-6xl">Progresse.<br><span class="text-sky-400">Séance après séance.</span></h1>
+          <p class="mt-4 max-w-xl text-sm leading-6 text-zinc-400 sm:text-base">Des séances adaptées à ton niveau, un plan B quand la salle est bondée, et un suivi précis.</p>
+        </div>
+        <div class="hidden rounded-2xl border border-sky-400/20 bg-sky-400/[.06] px-4 py-3 text-right sm:block">
+          <span class="eyebrow block">Aujourd'hui</span>
+          <span id="today-label" class="mt-1 block text-sm font-bold text-zinc-200"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel mb-5 p-5 sm:p-6" aria-labelledby="level-heading">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p class="eyebrow mb-1">01 / Ton profil</p>
+          <h2 id="level-heading" class="text-lg font-extrabold">Choisis ton niveau</h2>
+        </div>
+        <span class="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-400">Enregistré sur cet appareil</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 sm:gap-3" role="group" aria-label="Niveau sportif">
+        <button class="level-btn" type="button" data-level="beginner" aria-pressed="false">Débutant</button>
+        <button class="level-btn" type="button" data-level="intermediate" aria-pressed="false">Intermédiaire</button>
+        <button class="level-btn" type="button" data-level="advanced" aria-pressed="false">Avancé</button>
+      </div>
+      <p id="level-hint" class="mt-3 text-xs leading-5 text-zinc-500"></p>
+    </section>
+
+    <section class="panel mb-5 p-5 sm:p-6" aria-labelledby="generator-heading">
+      <div class="mb-4">
+        <p class="eyebrow mb-1">02 / Programme du jour</p>
+        <div class="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="generator-heading" class="text-lg font-extrabold">Choisis ta séance</h2>
+            <p class="mt-1 text-xs text-zinc-500">Une séance complète ajustée à ton niveau.</p>
+          </div>
+          <span class="text-xs font-bold text-zinc-500"><span id="exercise-count">0</span> EXERCICES</span>
+        </div>
+      </div>
+      <div class="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="Catégorie de séance">
+        <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="push" aria-pressed="true">Pecs / Épaules / Triceps</button>
+        <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="pull" aria-pressed="false">Dos / Biceps</button>
+        <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="posterior" aria-pressed="false">Ischios / Fessiers</button>
+        <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="quads" aria-pressed="false">Quads (Quadriceps)</button>
+        <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="full" aria-pressed="false">Full Body</button>
+        <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="core" aria-pressed="false">Cardio / Abdos</button>
+      </div>
+      <button id="generate-btn" class="primary-btn w-full px-5 sm:w-auto sm:min-w-64" type="button">
+        <span aria-hidden="true">↻</span> Générer une séance
+      </button>
+    </section>
+
+    <section class="panel mb-8 overflow-hidden" aria-labelledby="quick-heading">
+      <div class="grid gap-0 md:grid-cols-[.9fr_1.1fr]">
+        <div class="p-5 sm:p-6">
+          <p class="eyebrow mb-1">Plan B express</p>
+          <h2 id="quick-heading" class="text-lg font-extrabold">Plan B Express</h2>
+          <p class="mt-1 max-w-md text-sm leading-5 text-zinc-400">Choisis un exercice de la base et trouve trois options adaptées avec un autre matériel.</p>
+        </div>
+        <form id="quick-form" class="flex flex-col gap-2 border-t border-white/[.07] bg-white/[.02] p-4 sm:flex-row sm:items-center sm:border-l sm:border-t-0 sm:p-5">
+          <label class="sr-only" for="quick-input">Nom d'un exercice à remplacer</label>
+          <input id="quick-input" list="exercise-list" autocomplete="off" type="search" placeholder="Ex. développé couché, squat…" class="focus-ring min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-[#0b100d] px-4 text-sm text-white placeholder:text-zinc-600">
+          <datalist id="exercise-list"></datalist>
+          <button class="min-h-12 rounded-xl border border-sky-400/30 bg-sky-400/[.08] px-5 font-extrabold text-sky-300 hover:bg-sky-400/[.15]" type="submit">Trouver 3 options</button>
+        </form>
+      </div>
+      <div id="quick-results" class="hidden border-t border-white/[.07] px-5 py-4 sm:px-6" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="session-heading">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p class="eyebrow mb-1">03 / À toi de jouer</p>
+          <h2 id="session-heading" class="text-xl font-black sm:text-2xl">Ta séance</h2>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/[.035] px-3 py-2 text-right">
+          <span class="block text-[10px] font-bold tracking-wider text-zinc-500">TONNAGE VALIDÉ</span>
+          <span id="live-tonnage" class="text-sm font-black text-sky-400">0 kg</span>
+        </div>
+      </div>
+      <div id="workout-list" class="grid gap-3" aria-live="polite"></div>
+      <p class="mt-4 text-center text-[11px] leading-5 text-zinc-600">Ajuste le poids et les répétitions au réalisé. Les reps préremplies correspondent au milieu de la recommandation.</p>
+    </section>
+  </main>
+
+  <div id="toast-region" class="pointer-events-none fixed left-1/2 top-4 z-[70] w-[calc(100%-32px)] max-w-sm -translate-x-1/2" aria-live="polite"></div>
+
+  <div id="timer-dock" class="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#09090b]/95 px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl">
+    <div class="shell">
+      <div id="timer-widget" class="rounded-2xl border border-white/[.08] bg-zinc-900/95 px-3 py-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Repos</span>
+            <output id="timer-display" class="min-w-[62px] font-mono text-xl font-black tabular-nums text-sky-400" aria-live="off">01:30</output>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="timer-minus" class="step-btn h-9 w-9 text-sm" type="button" aria-label="Retirer 10 secondes">−10</button>
+            <button id="timer-toggle" class="min-h-10 min-w-[94px] rounded-xl bg-sky-500 px-3 text-xs font-black text-sky-950" type="button">Démarrer</button>
+            <button id="timer-reset" class="step-btn h-9 w-9 text-base" type="button" aria-label="Réinitialiser le chronomètre">↺</button>
+            <button id="timer-plus" class="step-btn h-9 w-9 text-sm" type="button" aria-label="Ajouter 10 secondes">+10</button>
+          </div>
+        </div>
+        <p id="timer-status" class="sr-only" aria-live="assertive"></p>
+        <div class="mt-2 flex items-center gap-2 overflow-x-auto pb-0.5" aria-label="Durées de repos rapides">
+          <span class="shrink-0 text-[10px] font-bold text-zinc-600">RAPIDE</span>
+          <button class="timer-preset rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-bold text-zinc-400 hover:border-sky-400/50 hover:text-sky-300" data-seconds="30" type="button">30 s</button>
+          <button class="timer-preset rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-bold text-zinc-400 hover:border-sky-400/50 hover:text-sky-300" data-seconds="60" type="button">1 min</button>
+          <button class="timer-preset rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-bold text-zinc-400 hover:border-sky-400/50 hover:text-sky-300" data-seconds="90" type="button">1 min 30</button>
+          <button class="timer-preset rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-bold text-zinc-400 hover:border-sky-400/50 hover:text-sky-300" data-seconds="120" type="button">2 min</button>
+          <button class="timer-preset rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-bold text-zinc-400 hover:border-sky-400/50 hover:text-sky-300" data-seconds="180" type="button">3 min</button>
+          <label class="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-semibold text-zinc-500">Libre
+            <input id="timer-custom" type="number" min="1" max="3599" step="1" value="90" aria-label="Temps de repos personnalisé en secondes" class="w-14 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-center text-xs text-white">
+            <span>s</span>
+          </label>
+          <button id="timer-apply" class="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold text-sky-400 hover:bg-sky-400/10" type="button">Régler</button>
+        </div>
+      </div>
+      <div class="mt-2 flex items-center gap-3">
+        <p id="footer-status" class="hidden min-w-0 flex-1 truncate text-xs font-bold text-zinc-400 sm:block">Ta séance t'attend</p>
+        <button id="finish-btn" class="primary-btn min-h-12 w-full px-4 text-sm sm:ml-auto sm:w-auto sm:min-w-60" type="button" disabled>
+          Terminer ma séance <span aria-hidden="true">→</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="victory-modal" class="dialog-backdrop fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto p-4" role="dialog" aria-modal="true" aria-labelledby="victory-title">
+    <div class="panel relative my-auto w-full max-w-lg overflow-hidden p-6 shadow-2xl sm:p-8">
+      <button id="close-modal" class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full border border-white/10 text-xl text-zinc-400 hover:text-white" type="button" aria-label="Fermer">×</button>
+      <p class="eyebrow mb-2">Bilan de séance</p>
+      <h2 id="victory-title" class="text-2xl font-black">Résumé de ta performance</h2>
+      <div class="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/[.06] p-5">
+        <p class="text-xs font-bold uppercase tracking-widest text-zinc-500">Tonnage total</p>
+        <p id="victory-total" class="mt-1 text-4xl font-black tracking-tight text-sky-400">0 kg</p>
+        <p id="victory-copy" class="mt-2 text-sm text-zinc-400"></p>
+      </div>
+      <section class="mt-6" aria-labelledby="muscle-summary-heading">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h3 id="muscle-summary-heading" class="text-sm font-extrabold">Séries par groupe musculaire</h3>
+          <span id="total-sets-label" class="text-xs font-semibold text-zinc-500"></span>
+        </div>
+        <div id="muscle-summary" class="grid gap-2 sm:grid-cols-2"></div>
+        <p class="mt-3 text-[11px] leading-5 text-zinc-500">Tonnage = séries validées × répétitions saisies × poids utilisé (× 2 si les reps sont indiquées par côté). Une série polyarticulaire est comptée pour chaque muscle sollicité. Les exercices chronométrés ou à distance figurent dans le détail des séries, mais pas dans le tonnage en kg.</p>
+      </section>
+      <div class="mt-6 flex flex-col gap-2 sm:flex-row">
+        <button id="modal-close-cta" class="primary-btn w-full px-4" type="button">Fermer le bilan</button>
+        <button id="modal-new-session" class="min-h-14 w-full rounded-[15px] border border-white/10 bg-white/[.04] px-4 font-bold text-zinc-300 hover:bg-white/[.08]" type="button">Générer une autre séance</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+    const EXERCISES = [
+      {id:"bench",name:"Développé couché barre",group:"push",muscles:["Pectoraux","Triceps","Épaules"],level:"beginner",equipment:"Barre + banc",sets:3,reps:"8–12",weight:50,alternatives:["db-bench","chest-machine"],icon:"🏋️"},
+      {id:"db-bench",name:"Développé couché haltères",group:"push",muscles:["Pectoraux","Triceps"],level:"beginner",equipment:"Haltères + banc",sets:3,reps:"8–12",weight:20,alternatives:["bench","chest-machine"],icon:"💪"},
+      {id:"incline-db",name:"Développé incliné haltères",group:"push",muscles:["Haut des pectoraux","Triceps","Épaules"],level:"beginner",equipment:"Haltères + banc incliné",sets:3,reps:"8–12",weight:16,alternatives:["incline-machine","incline-pushup"],icon:"📐"},
+      {id:"incline-machine",name:"Développé incliné guidé",group:"push",muscles:["Haut des pectoraux","Triceps"],level:"intermediate",equipment:"Machine convergente",sets:3,reps:"8–12",weight:35,alternatives:["incline-db","cable-fly"],icon:"⚙️"},
+      {id:"incline-pushup",name:"Pompes inclinées",group:"push",muscles:["Pectoraux","Triceps","Épaules"],level:"beginner",equipment:"Banc",sets:3,reps:"10–15",weight:25,alternatives:["db-bench","chest-machine"],icon:"🔻"},
+      {id:"chest-machine",name:"Presse pectorale",group:"push",muscles:["Pectoraux","Triceps"],level:"beginner",equipment:"Machine guidée",sets:3,reps:"10–12",weight:40,alternatives:["bench","cable-fly"],icon:"🦾"},
+      {id:"cable-fly",name:"Cable fly (écartés à la poulie)",group:"push",muscles:["Pectoraux"],level:"intermediate",equipment:"Poulies",sets:3,reps:"12–15",weight:12.5,alternatives:["pec-deck","db-fly"],icon:"🪽"},
+      {id:"pec-deck",name:"Butterfly (Pec deck)",group:"push",muscles:["Pectoraux"],level:"beginner",equipment:"Pec deck",sets:3,reps:"12–15",weight:35,alternatives:["cable-fly","db-fly"],icon:"🦋"},
+      {id:"db-fly",name:"Écartés couchés haltères",group:"push",muscles:["Pectoraux"],level:"intermediate",equipment:"Haltères + banc",sets:3,reps:"10–12",weight:10,alternatives:["cable-fly","pec-deck"],icon:"🪽"},
+      {id:"shoulder-db",name:"Développé épaules haltères",group:"push",muscles:["Épaules","Triceps"],level:"beginner",equipment:"Haltères + banc",sets:3,reps:"8–12",weight:14,alternatives:["shoulder-bar","shoulder-machine"],icon:"🙆"},
+      {id:"shoulder-bar",name:"Développé militaire",group:"push",muscles:["Épaules","Triceps"],level:"intermediate",equipment:"Barre",sets:3,reps:"6–10",weight:30,alternatives:["shoulder-db","shoulder-machine"],icon:"🏋️"},
+      {id:"shoulder-machine",name:"Presse épaules",group:"push",muscles:["Épaules","Triceps"],level:"beginner",equipment:"Machine guidée",sets:3,reps:"10–12",weight:25,alternatives:["shoulder-db","shoulder-bar"],icon:"⚙️"},
+      {id:"lateral-db",name:"Élévations latérales",group:"push",muscles:["Épaules"],level:"beginner",equipment:"Haltères",sets:3,reps:"12–15",weight:6,alternatives:["lateral-cable","lateral-machine"],icon:"↗️"},
+      {id:"lateral-cable",name:"Élévations latérales à la poulie",group:"push",muscles:["Épaules"],level:"intermediate",equipment:"Poulie basse",sets:3,reps:"12–15",weight:5,alternatives:["lateral-db","lateral-machine"],icon:"🔗"},
+      {id:"lateral-machine",name:"Élévations latérales guidées",group:"push",muscles:["Épaules"],level:"beginner",equipment:"Machine épaules",sets:3,reps:"12–15",weight:20,alternatives:["lateral-db","lateral-cable"],icon:"⚙️"},
+      {id:"triceps-rope",name:"Extension triceps corde",group:"push",muscles:["Triceps"],level:"beginner",equipment:"Poulie + corde",sets:3,reps:"10–15",weight:20,alternatives:["dips","close-grip"],icon:"🪢"},
+      {id:"overhead-triceps",name:"Extension triceps au-dessus de la tête",group:"push",muscles:["Triceps"],level:"intermediate",equipment:"Haltère",sets:3,reps:"10–12",weight:12,alternatives:["triceps-rope","close-grip"],icon:"🙌"},
+      {id:"dips",name:"Dips assistés",group:"push",muscles:["Triceps","Pectoraux","Épaules"],level:"intermediate",equipment:"Barres parallèles",sets:3,reps:"6–12",weight:20,alternatives:["triceps-rope","close-grip"],icon:"⬇️"},
+      {id:"close-grip",name:"Développé serré",group:"push",muscles:["Triceps","Pectoraux"],level:"advanced",equipment:"Barre + banc",sets:3,reps:"6–10",weight:40,alternatives:["triceps-rope","dips"],icon:"✊"},
+      {id:"high-low-fly",name:"High to low fly",group:"push",muscles:["Pectoraux","Triceps"],level:"intermediate",equipment:"Poulies hautes",sets:3,reps:"10–15",weight:10,alternatives:["cable-fly","pec-deck"],icon:"↘️"},
+
+      {id:"barbell-row",name:"Rowing barre",group:"pull",muscles:["Dos","Biceps"],level:"intermediate",equipment:"Barre",sets:3,reps:"8–12",weight:40,alternatives:["cable-row","chest-row"],icon:"🚣"},
+      {id:"lat-pulldown",name:"Tirage vertical poitrine",group:"pull",muscles:["Dos","Biceps"],level:"beginner",equipment:"Poulie haute",sets:3,reps:"8–12",weight:40,alternatives:["assisted-pullup","one-arm-row"],icon:"⬇️"},
+      {id:"cable-row",name:"Tirage horizontal assis à la poulie",group:"pull",muscles:["Dos","Biceps"],level:"beginner",equipment:"Poulie basse",sets:3,reps:"10–12",weight:35,alternatives:["barbell-row","chest-row"],icon:"🔗"},
+      {id:"one-arm-row",name:"Rowing unilatéral haltère",group:"pull",muscles:["Dos","Biceps"],level:"beginner",equipment:"Haltère + banc",sets:3,reps:"10–12",weight:18,alternatives:["cable-row","chest-row"],icon:"💪"},
+      {id:"chest-row",name:"Rowing poitrine appuyée",group:"pull",muscles:["Dos","Biceps"],level:"intermediate",equipment:"Machine guidée",sets:3,reps:"8–12",weight:35,alternatives:["one-arm-row","cable-row"],icon:"⚙️"},
+      {id:"face-pull",name:"Face pull",group:"pull",muscles:["Haut du dos","Épaules arrière"],level:"beginner",equipment:"Poulie + corde",sets:3,reps:"12–15",weight:15,alternatives:["reverse-fly","band-pull"],icon:"🪢"},
+      {id:"reverse-fly",name:"Arrière d'épaule (Oiseau / Reverse fly)",group:"pull",muscles:["Haut du dos","Épaules arrière"],level:"beginner",equipment:"Pec deck inversé",sets:3,reps:"12–15",weight:25,alternatives:["face-pull","band-pull"],icon:"🪽"},
+      {id:"band-pull",name:"Écarté élastique",group:"pull",muscles:["Haut du dos","Épaules arrière"],level:"beginner",equipment:"Élastique",sets:3,reps:"15–20",weight:8,alternatives:["face-pull","reverse-fly"],icon:"〰️"},
+      {id:"assisted-pullup",name:"Tractions assistées",group:"pull",muscles:["Dos","Biceps"],level:"intermediate",equipment:"Machine à tractions",sets:3,reps:"6–10",weight:25,alternatives:["lat-pulldown","one-arm-row"],icon:"🧗"},
+      {id:"barbell-curl",name:"Curl barre",group:"pull",muscles:["Biceps"],level:"beginner",equipment:"Barre EZ",sets:3,reps:"8–12",weight:20,alternatives:["hammer-curl","preacher-curl"],icon:"💪"},
+      {id:"hammer-curl",name:"Curl marteau",group:"pull",muscles:["Biceps","Avant-bras"],level:"beginner",equipment:"Haltères",sets:3,reps:"10–12",weight:10,alternatives:["barbell-curl","preacher-curl"],icon:"🔨"},
+      {id:"preacher-curl",name:"Curl pupitre",group:"pull",muscles:["Biceps"],level:"beginner",equipment:"Machine pupitre",sets:3,reps:"10–12",weight:20,alternatives:["barbell-curl","hammer-curl"],icon:"⚙️"},
+
+      {id:"squat",name:"Squat barre",group:"quads",muscles:["Quadriceps","Fessiers","Abdos"],level:"intermediate",equipment:"Barre + rack",sets:3,reps:"6–10",weight:50,alternatives:["leg-press","goblet-squat"],icon:"🦵"},
+      {id:"leg-press",name:"Presse à cuisses",group:"quads",muscles:["Quadriceps","Fessiers"],level:"beginner",equipment:"Presse à cuisses",sets:3,reps:"10–12",weight:100,alternatives:["squat","hack-squat"],icon:"⚙️"},
+      {id:"goblet-squat",name:"Squat goblet",group:"quads",muscles:["Quadriceps","Fessiers","Abdos"],level:"beginner",equipment:"Haltère ou kettlebell",sets:3,reps:"10–12",weight:16,alternatives:["squat","leg-press"],icon:"🏆"},
+      {id:"hack-squat",name:"Hack squat",group:"quads",muscles:["Quadriceps","Fessiers"],level:"intermediate",equipment:"Machine hack squat",sets:3,reps:"8–12",weight:60,alternatives:["leg-press","goblet-squat"],icon:"⚙️"},
+      {id:"rdl",name:"Soulevé de terre roumain",group:"posterior",muscles:["Ischio-jambiers","Fessiers","Dos"],level:"intermediate",equipment:"Barre",sets:3,reps:"8–12",weight:45,alternatives:["db-rdl","leg-curl"],icon:"🏋️"},
+      {id:"db-rdl",name:"Soulevé de terre roumain haltères",group:"posterior",muscles:["Ischio-jambiers","Fessiers"],level:"beginner",equipment:"Haltères",sets:3,reps:"10–12",weight:16,alternatives:["rdl","leg-curl"],icon:"💪"},
+      {id:"leg-curl",name:"Leg curl assis",group:"posterior",muscles:["Ischio-jambiers"],level:"beginner",equipment:"Machine leg curl assis",sets:3,reps:"10–15",weight:30,alternatives:["lying-leg-curl","db-rdl"],icon:"⚙️"},
+      {id:"lunges",name:"Fentes marchées",group:"quads",muscles:["Quadriceps","Fessiers"],level:"beginner",equipment:"Haltères",sets:3,reps:"10 / jambe",weight:12,alternatives:["leg-press","goblet-squat"],icon:"🚶"},
+      {id:"hip-thrust",name:"Hip thrust",group:"posterior",muscles:["Fessiers","Ischio-jambiers"],level:"intermediate",equipment:"Barre + banc",sets:3,reps:"8–12",weight:50,alternatives:["glute-bridge","pull-through"],icon:"🍑"},
+      {id:"glute-bridge",name:"Pont fessier",group:"posterior",muscles:["Fessiers","Abdos"],level:"beginner",equipment:"Poids du corps",sets:3,reps:"12–15",weight:30,alternatives:["hip-thrust","pull-through"],icon:"🌉"},
+      {id:"pull-through",name:"Pull-through poulie",group:"posterior",muscles:["Fessiers","Ischio-jambiers"],level:"intermediate",equipment:"Poulie basse",sets:3,reps:"10–15",weight:20,alternatives:["hip-thrust","db-rdl"],icon:"🔗"},
+      {id:"calf-raise",name:"Extensions mollets debout",group:"quads",muscles:["Mollets"],level:"beginner",equipment:"Machine à mollets",sets:3,reps:"12–20",weight:35,alternatives:["leg-press-calf","calf-seated"],icon:"🦶"},
+      {id:"leg-press-calf",name:"Mollets à la presse",group:"quads",muscles:["Mollets"],level:"beginner",equipment:"Presse à cuisses",sets:3,reps:"12–20",weight:60,alternatives:["calf-raise","calf-bar"],icon:"🦶"},
+      {id:"calf-bar",name:"Mollets debout barre",group:"quads",muscles:["Mollets"],level:"intermediate",equipment:"Barre + cale",sets:3,reps:"10–15",weight:30,alternatives:["calf-raise","leg-press-calf"],icon:"🏋️"},
+      {id:"calf-seated",name:"Extensions mollets assis",group:"quads",muscles:["Mollets"],level:"beginner",equipment:"Machine à mollets assis",sets:3,reps:"12–20",weight:25,alternatives:["calf-raise","calf-single"],icon:"🦶"},
+      {id:"calf-single",name:"Mollets unilatéraux haltère",group:"quads",muscles:["Mollets"],level:"beginner",equipment:"Haltère + marche",sets:3,reps:"12 / côté",weight:12,alternatives:["calf-seated","leg-press-calf"],icon:"🦶"},
+      {id:"plank",name:"Planche",group:"core",muscles:["Abdos","Gainage"],level:"beginner",equipment:"Poids du corps",sets:3,reps:"30–45 s",weight:25,alternatives:["dead-bug","cable-crunch"],icon:"🧱"},
+      {id:"dead-bug",name:"Dead bug",group:"core",muscles:["Abdos","Gainage"],level:"beginner",equipment:"Tapis",sets:3,reps:"10 / côté",weight:10,alternatives:["plank","cable-crunch"],icon:"🐞"},
+      {id:"cable-crunch",name:"Crunch à la poulie",group:"core",muscles:["Abdos"],level:"intermediate",equipment:"Poulie haute + corde",sets:3,reps:"12–15",weight:25,alternatives:["plank","dead-bug"],icon:"🔗"},
+      {id:"step-up",name:"Step up",group:"quads",muscles:["Quadriceps","Fessiers"],level:"beginner",equipment:"Banc + haltères",sets:3,reps:"10 / jambe",weight:10,alternatives:["bulgarian-split","leg-press"],icon:"🪜"},
+      {id:"bulgarian-split",name:"Fentes bulgares",group:"quads",muscles:["Quadriceps","Fessiers"],level:"intermediate",equipment:"Haltères + banc",sets:3,reps:"8–10 / jambe",weight:12,alternatives:["lunges","step-up"],icon:"🦵"},
+      {id:"leg-extension",name:"Leg extension",group:"quads",muscles:["Quadriceps"],level:"beginner",equipment:"Machine leg extension",sets:3,reps:"10–15",weight:30,alternatives:["leg-press","goblet-squat"],icon:"⚙️"},
+      {id:"lying-leg-curl",name:"Leg curl allongé",group:"posterior",muscles:["Ischio-jambiers"],level:"beginner",equipment:"Machine leg curl allongé",sets:3,reps:"10–15",weight:25,alternatives:["leg-curl","db-rdl"],icon:"⚙️"},
+      {id:"kickback",name:"Kick back à la poulie",group:"posterior",muscles:["Fessiers"],level:"beginner",equipment:"Poulie basse + sangle",sets:3,reps:"12–15",weight:10,alternatives:["glute-bridge","hip-thrust"],icon:"🍑"},
+      {id:"back-extension",name:"Back extension",group:"posterior",muscles:["Ischio-jambiers","Fessiers","Dos"],level:"beginner",equipment:"Banc à lombaires",sets:3,reps:"10–15",weight:10,alternatives:["rdl","hip-thrust"],icon:"↗️"},
+      {id:"back-extension-glute",name:"Back extension focus fessier (dos arrondi)",group:"posterior",muscles:["Fessiers","Ischio-jambiers"],level:"intermediate",equipment:"Banc à lombaires",sets:3,reps:"10–15",weight:10,alternatives:["kickback","hip-thrust"],icon:"🍑"},
+      {id:"adduction",name:"Adduction de hanche",group:"posterior",muscles:["Adducteurs"],level:"beginner",equipment:"Machine adducteurs",sets:3,reps:"12–15",weight:25,alternatives:["band-adduction","cable-adduction"],icon:"↔️"},
+      {id:"abduction",name:"Abduction de hanche",group:"posterior",muscles:["Abducteurs","Fessiers"],level:"beginner",equipment:"Machine abducteurs",sets:3,reps:"12–15",weight:25,alternatives:["band-walk","kickback"],icon:"↔️"},
+      {id:"cable-adduction",name:"Adduction de hanche à la poulie",group:"posterior",muscles:["Adducteurs"],level:"intermediate",equipment:"Poulie basse + sangle",sets:3,reps:"12–15",weight:7.5,alternatives:["adduction","copenhagen-plank"],icon:"🔗"},
+      {id:"band-adduction",name:"Adduction avec élastique",group:"posterior",muscles:["Adducteurs"],level:"beginner",equipment:"Élastique",sets:3,reps:"12–15",weight:5,alternatives:["adduction","cable-adduction"],icon:"〰️"},
+      {id:"side-lunge",name:"Fente latérale",group:"quads",muscles:["Adducteurs","Quadriceps","Fessiers"],level:"beginner",equipment:"Poids du corps ou haltère",sets:3,reps:"8–10 / côté",weight:8,alternatives:["adduction","goblet-squat"],icon:"↔️"},
+      {id:"band-walk",name:"Pas latéraux avec élastique",group:"posterior",muscles:["Abducteurs","Fessiers"],level:"beginner",equipment:"Mini-bande élastique",sets:3,reps:"12 / côté",weight:8,alternatives:["abduction","kickback"],icon:"〰️"},
+      {id:"russian-twist",name:"Russian twist",group:"core",muscles:["Abdos","Obliques"],level:"beginner",equipment:"Poids du corps ou medecine ball",sets:3,reps:"12 / côté",weight:5,alternatives:["cable-crunch","side-plank"],icon:"🔄"},
+      {id:"reverse-crunch",name:"Crunch inversé",group:"core",muscles:["Abdos"],level:"beginner",equipment:"Tapis",sets:3,reps:"10–15",weight:10,alternatives:["hanging-knee-raise","dead-bug"],icon:"↩️"},
+      {id:"hanging-knee-raise",name:"Relevé de genoux suspendu",group:"core",muscles:["Abdos","Fléchisseurs de hanche"],level:"intermediate",equipment:"Barre de traction",sets:3,reps:"8–12",weight:15,alternatives:["reverse-crunch","cable-crunch"],icon:"🧗"},
+      {id:"side-plank",name:"Gainage latéral",group:"core",muscles:["Obliques","Gainage"],level:"beginner",equipment:"Poids du corps",sets:3,reps:"20–40 s / côté",weight:15,alternatives:["cable-crunch","russian-twist"],icon:"↔️"},
+      {id:"hollow-hold",name:"Hollow hold",group:"core",muscles:["Abdos","Gainage"],level:"intermediate",equipment:"Tapis",sets:3,reps:"20–40 s",weight:15,alternatives:["dead-bug","plank"],icon:"◡"},
+      {id:"copenhagen-plank",name:"Gainage de Copenhague",group:"core",muscles:["Adducteurs","Gainage"],level:"intermediate",equipment:"Banc",sets:3,reps:"20–30 s / côté",weight:15,alternatives:["adduction","cable-adduction"],icon:"🧱"},
+      {id:"bike-sprint",name:"Sprint vélo",group:"core",muscles:["Quadriceps","Cardio"],level:"beginner",equipment:"Vélo d'assaut",sets:4,reps:"20 s",weight:15,alternatives:["mountain-climber","burpee"],icon:"🚴"},
+
+      {id:"kettlebell-deadlift",name:"Soulevé de terre kettlebell",group:"full",muscles:["Fessiers","Ischio-jambiers","Dos"],level:"beginner",equipment:"Kettlebell",sets:3,reps:"10–12",weight:20,alternatives:["db-rdl","pull-through"],icon:"🔔"},
+      {id:"burpee",name:"Burpee",group:"full",muscles:["Pectoraux","Quadriceps","Triceps","Abdos"],level:"intermediate",equipment:"Poids du corps",sets:3,reps:"8–12",weight:30,alternatives:["battle-ropes","bike-sprint"],icon:"⚡"},
+      {id:"battle-ropes",name:"Vagues à la corde",group:"full",muscles:["Épaules","Triceps","Abdos"],level:"intermediate",equipment:"Corde ondulatoire",sets:3,reps:"30 s",weight:15,alternatives:["burpee","mountain-climber"],icon:"〰️"},
+      {id:"farmer-carry",name:"Marche du fermier",group:"full",muscles:["Avant-bras","Épaules","Abdos"],level:"beginner",equipment:"Haltères",sets:3,reps:"30 m",weight:24,alternatives:["kettlebell-carry","trap-carry"],icon:"🧳"},
+      {id:"kettlebell-carry",name:"Marche du fermier kettlebell",group:"full",muscles:["Avant-bras","Épaules","Abdos"],level:"beginner",equipment:"Kettlebells",sets:3,reps:"30 m",weight:20,alternatives:["farmer-carry","trap-carry"],icon:"🔔"},
+      {id:"trap-carry",name:"Marche avec barre hexagonale",group:"full",muscles:["Avant-bras","Épaules","Quadriceps"],level:"advanced",equipment:"Barre hexagonale",sets:4,reps:"25 m",weight:60,alternatives:["farmer-carry","kettlebell-carry"],icon:"⬡"},
+      {id:"mountain-climber",name:"Mountain climbers",group:"full",muscles:["Abdos","Épaules","Quadriceps"],level:"beginner",equipment:"Poids du corps",sets:3,reps:"30 s",weight:25,alternatives:["battle-ropes","burpee"],icon:"⛰️"},
+      {id:"bike-sprint",name:"Sprint vélo",group:"full",muscles:["Jambes","Abdos"],level:"beginner",equipment:"Vélo d'assaut",sets:4,reps:"20 s",weight:15,alternatives:["burpee","mountain-climber"],icon:"🚴"},
+      {id:"db-thruster",name:"Thruster haltères",group:"full",muscles:["Quadriceps","Épaules","Abdos"],level:"intermediate",equipment:"Haltères",sets:3,reps:"8–10",weight:12,alternatives:["barbell-thruster","goblet-squat"],icon:"🚀"},
+      {id:"barbell-thruster",name:"Thruster barre",group:"full",muscles:["Quadriceps","Épaules","Abdos"],level:"advanced",equipment:"Barre",sets:4,reps:"6–8",weight:25,alternatives:["db-thruster","bike-sprint"],icon:"🏋️"},
+      {id:"bear-crawl",name:"Marche de l'ours",group:"full",muscles:["Épaules","Abdos","Quadriceps"],level:"beginner",equipment:"Poids du corps",sets:3,reps:"20 m",weight:25,alternatives:["mountain-climber","battle-ropes"],icon:"🐻"}
+    ];
+
+    const LEVELS = ["beginner","intermediate","advanced"];
+    const LEVEL_NAMES = {beginner:"Débutant",intermediate:"Intermédiaire",advanced:"Avancé"};
+    const LEVEL_HINTS = {
+      beginner:"Mouvements accessibles, repères simples et volume progressif pour construire de bonnes bases.",
+      intermediate:"Un peu plus de volume et des variantes qui demandent davantage de contrôle.",
+      advanced:"Volume renforcé, charges plus ambitieuses et variantes techniques supplémentaires."
+    };
+    const GROUP_NAMES = {
+      push:"Pecs / Épaules / Triceps",
+      pull:"Dos / Biceps",
+      posterior:"Ischios / Fessiers",
+      quads:"Quads (Quadriceps)",
+      full:"Full Body",
+      core:"Cardio / Abdos"
+    };
+    const ROUTINE_TAGS = {
+      beginner:["Descente contrôlée pendant 3 s","Pause d'1 s en position de contraction","Garde 2 répétitions en réserve","Contrôle chaque répétition sans élan"],
+      intermediate:["Tempo 3 s à la descente","Pause de 2 s en position étirée","Dernière série en dégressive","Ralentis les 3 dernières répétitions"],
+      advanced:["Dernière série en dégressive","Tempo 4 s sur la phase négative","Pause de 2 s en contraction","Ajoute 1 répétition partielle en fin de série"]
+    };
+    const state = {
+      level: localStorageGet("muscleo-level") || localStorageGet("forge-level") || "beginner",
+      group:"push",
+      workout:[],
+      recent:loadRecentIds(),
+      quickSource:null,
+      swappedIndex:-1,
+      toastTimer:null,
+      timer:{duration:90,remaining:90,interval:null,endAt:0,finished:false}
+    };
+
+    const $ = function(selector, root) { return (root || document).querySelector(selector); };
+    const $$ = function(selector, root) { return Array.from((root || document).querySelectorAll(selector)); };
+    const listEl = $("#workout-list");
+
+    function localStorageGet(key) {
+      try { return window.localStorage.getItem(key); } catch (error) { return null; }
+    }
+    function localStorageSet(key, value) {
+      try { window.localStorage.setItem(key, value); } catch (error) { /* Le mode sans stockage reste utilisable. */ }
+    }
+    function loadRecentIds() {
+      try {
+        const saved = JSON.parse(localStorageGet("muscleo-recent") || localStorageGet("forge-recent") || "[]");
+        return Array.isArray(saved) ? saved : [];
+      } catch (error) {
+        return [];
+      }
+    }
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, function(char) {
+        return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char];
+      });
+    }
+    function normalize(value) {
+      return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+    }
+    function formatKg(value) {
+      return new Intl.NumberFormat("fr-FR",{maximumFractionDigits:1}).format(value);
+    }
+    function levelIndex(level) { return LEVELS.indexOf(level); }
+    function canDo(exercise) { return levelIndex(exercise.level) <= levelIndex(state.level); }
+    function exerciseById(id) { return EXERCISES.find(function(exercise) { return exercise.id === id; }); }
+    function shuffle(items) {
+      const result = items.slice();
+      for (let i = result.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i],result[j]] = [result[j],result[i]];
+      }
+      return result;
+    }
+    function prescriptions(exercise) {
+      const level = levelIndex(state.level);
+      const sets = Math.max(2,Math.min(4,exercise.sets + (level === 0 ? -1 : level === 1 ? 0 : 1)));
+      let reps = exercise.reps;
+      if (level === 0 && !/s$|m$|jambe$|c[oô]t[eé]$/.test(reps)) reps = "10–12";
+      if (level === 2 && !/s$|m$|jambe$|c[oô]t[eé]$/.test(reps)) reps = "6–8";
+      return {sets:sets,reps:reps};
+    }
+    function makeWorkoutItem(exercise, variant) {
+      const plan = prescriptions(exercise);
+      return Object.assign({}, exercise, {
+        prescribedSets:plan.sets,
+        prescribedReps:plan.reps,
+        repsDone:Math.round(averageReps(plan.reps)),
+        weight:exercise.weight,
+        setsDone:0,
+        variant:variant || ""
+      });
+    }
+    function pickVariants(items) {
+      const count = Math.random() < .55 ? 1 : 2;
+      const indices = shuffle(items.map(function(_,index) { return index; })).slice(0,count);
+      const available = shuffle(ROUTINE_TAGS[state.level]);
+      indices.forEach(function(index,position) { items[index].variant = available[position]; });
+    }
+    function generateWorkout() {
+      const pool = EXERCISES.filter(function(exercise) { return exercise.group === state.group && canDo(exercise); });
+      const unseen = pool.filter(function(exercise) { return !state.recent.includes(exercise.id); });
+      let chosen = shuffle(unseen.length >= 5 ? unseen : pool).slice(0,5);
+      if (chosen.length < 5) {
+        chosen = shuffle(pool).slice(0,5);
+      }
+      state.workout = chosen.map(function(exercise) { return makeWorkoutItem(exercise,""); });
+      pickVariants(state.workout);
+      state.recent = chosen.map(function(exercise) { return exercise.id; });
+      localStorageSet("muscleo-recent",JSON.stringify(state.recent));
+      state.swappedIndex = -1;
+      renderWorkout();
+      showToast("Nouvelle séance " + GROUP_NAMES[state.group] + " prête.");
+    }
+    function averageReps(reps) {
+      if (/\d+\s*(?:s|sec)\b/i.test(reps) || /\d+\s*m\b/i.test(reps)) return 0;
+      const values = (reps.match(/\d+(?:[.,]\d+)?/g) || ["1"]).map(function(value) { return Number(value.replace(",", ".")); });
+      return values.reduce(function(sum,value) { return sum + value; },0) / values.length;
+    }
+    function repetitionsMultiplier(reps) {
+      return /\/\s*(jambe|c[oô]t[eé])/i.test(reps) ? 2 : 1;
+    }
+    function tonnageFor(exercise) {
+      return exercise.setsDone * exercise.repsDone * repetitionsMultiplier(exercise.prescribedReps) * exercise.weight;
+    }
+    function totalTonnage() {
+      return state.workout.reduce(function(total,exercise) { return total + tonnageFor(exercise); },0);
+    }
+    function validatedCount() {
+      return state.workout.reduce(function(total,exercise) { return total + exercise.setsDone; },0);
+    }
+    function updateSummary() {
+      $("#live-tonnage").textContent = formatKg(totalTonnage()) + " kg";
+      $("#footer-status").textContent = validatedCount() + " série" + (validatedCount() > 1 ? "s" : "") + " validée" + (validatedCount() > 1 ? "s" : "") + " · " + state.workout.length + " exercices";
+      $("#finish-btn").disabled = state.workout.length === 0;
+    }
+    function renderWorkout() {
+      $("#exercise-count").textContent = String(state.workout.length);
+      if (!state.workout.length) {
+        listEl.innerHTML = '<div class="panel p-8 text-center text-sm text-zinc-400">Choisis un niveau et génère ta séance.</div>';
+        updateSummary();
+        return;
+      }
+      listEl.innerHTML = state.workout.map(function(exercise,index) {
+        const muscles = exercise.muscles.join(" · ");
+        const levelText = LEVEL_NAMES[exercise.level];
+        const countableReps = averageReps(exercise.prescribedReps) > 0;
+        const perSide = /\/\s*(jambe|c[oô]t[eé])/i.test(exercise.prescribedReps);
+        const swapping = state.swappedIndex === index ? " swap-in" : "";
+        return '<article id="exercise-card-' + index + '" class="exercise-card panel p-4 sm:p-5' + swapping + (exercise.setsDone ? ' validated-card' : '') + '" style="animation-delay:' + (index * 45) + 'ms" data-index="' + index + '">' +
+          '<div class="flex items-start gap-3">' +
+            '<div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/[.07] bg-white/[.04] text-2xl">' + escapeHtml(exercise.icon) + '</div>' +
+            '<div class="min-w-0 flex-1">' +
+              '<div class="flex flex-wrap items-center gap-2">' +
+                '<h3 class="text-base font-extrabold leading-tight sm:text-lg">' + escapeHtml(exercise.name) + '</h3>' +
+                '<span class="rounded-full border border-white/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">' + escapeHtml(levelText) + '</span>' +
+              '</div>' +
+              '<p class="mt-1 text-xs text-zinc-500">' + escapeHtml(muscles) + '</p>' +
+            '</div>' +
+          '</div>' +
+          (exercise.variant ? '<div class="mt-3 inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/[.08] px-3 py-1.5 text-[11px] font-bold text-sky-300"><span aria-hidden="true">✦</span> Variante Anti-Routine <span class="font-medium text-sky-200/80">· ' + escapeHtml(exercise.variant) + '</span></div>' : '') +
+          '<div class="mt-4 grid grid-cols-2 gap-3 rounded-2xl border border-white/[.06] bg-black/20 p-3 sm:grid-cols-4">' +
+            '<div><span class="block text-[9px] font-bold uppercase tracking-wider text-zinc-600">Séries × reps prévues</span><span class="mt-1 block text-sm font-extrabold">' + exercise.prescribedSets + ' × ' + escapeHtml(exercise.prescribedReps) + '</span></div>' +
+            (countableReps
+              ? '<label class="block"><span class="block text-[9px] font-bold uppercase tracking-wider text-zinc-600">' + (perSide ? 'Reps / côté / série' : 'Reps réellement faites / série') + '</span><input class="reps-input mt-1 min-h-9 w-full rounded-lg border border-white/10 bg-white/[.04] px-2 text-sm font-black text-sky-400" type="number" min="0" max="100" step="1" inputmode="numeric" data-reps="' + index + '" value="' + exercise.repsDone + '" aria-label="Répétitions réellement effectuées ' + (perSide ? 'par côté et par série ' : 'par série ') + 'pour ' + escapeHtml(exercise.name) + '"></label>'
+              : '<div><span class="block text-[9px] font-bold uppercase tracking-wider text-zinc-600">Temps / distance</span><span class="mt-1 block text-sm font-extrabold text-zinc-400">' + escapeHtml(exercise.prescribedReps) + '</span></div>') +
+            '<div class="min-w-0"><span class="block text-[9px] font-bold uppercase tracking-wider text-zinc-600">Matériel</span><span class="mt-1 block truncate text-xs font-semibold text-zinc-300">' + escapeHtml(exercise.equipment) + '</span></div>' +
+            '<label class="block"><span class="block text-[9px] font-bold uppercase tracking-wider text-zinc-600">Poids utilisé (kg)</span><input class="weight-input mt-1 min-h-11 w-full rounded-lg border border-white/10 bg-white/[.04] px-3 text-lg font-black text-sky-400" type="number" min="0" step="0.5" inputmode="decimal" data-weight="' + index + '" value="' + exercise.weight + '" aria-label="Poids utilisé en kilogrammes pour ' + escapeHtml(exercise.name) + '"></label>' +
+          '</div>' +
+          '<div class="mt-3 flex flex-col gap-2 min-[390px]:flex-row min-[390px]:items-center">' +
+            '<button class="orange-btn min-h-12 flex-1 px-3 text-xs sm:text-sm" type="button" data-planb="' + index + '">Machine prise ? (Plan B)</button>' +
+            '<div class="flex min-h-12 flex-1 items-center justify-between gap-2 rounded-[13px] border border-white/10 bg-white/[.035] px-3">' +
+              '<span class="text-xs font-bold text-zinc-300">Séries validées</span>' +
+              '<div class="flex items-center gap-2"><button class="set-minus step-btn h-9 w-9 text-lg" type="button" aria-label="Retirer une série validée" data-index="' + index + '"' + (exercise.setsDone === 0 ? ' disabled' : '') + '>−</button><output class="sets-done min-w-10 text-center text-sm font-black text-sky-400" aria-live="polite">' + exercise.setsDone + ' / ' + exercise.prescribedSets + '</output><button class="set-plus step-btn h-9 w-9 text-lg" type="button" aria-label="Valider une série" data-index="' + index + '"' + (exercise.setsDone >= exercise.prescribedSets ? ' disabled' : '') + '>+</button></div>' +
+            '</div>' +
+          '</div>' +
+        '</article>';
+      }).join("");
+      updateSummary();
+    }
+    function findPlanB(exercise) {
+      const direct = exercise.alternatives.map(exerciseById).filter(function(candidate) {
+        return candidate && canDo(candidate) && normalize(candidate.equipment) !== normalize(exercise.equipment);
+      });
+      let candidates = direct;
+      if (!candidates.length) {
+        candidates = EXERCISES.filter(function(candidate) {
+          return candidate.id !== exercise.id && canDo(candidate) &&
+            normalize(candidate.equipment) !== normalize(exercise.equipment) &&
+            candidate.muscles.some(function(muscle) { return exercise.muscles.includes(muscle); });
+        });
+      }
+      if (!candidates.length) return null;
+      return shuffle(candidates)[0];
+    }
+    function swapExercise(index) {
+      const current = state.workout[index];
+      if (!current) return;
+      const alternative = findPlanB(current);
+      if (!alternative) {
+        showToast("Pas d'alternative disponible pour ce niveau.");
+        return;
+      }
+      const variant = current.variant;
+      state.workout[index] = makeWorkoutItem(alternative,variant);
+      state.swappedIndex = index;
+      renderWorkout();
+      showToast("Plan B : " + alternative.name + " · " + alternative.equipment);
+      window.setTimeout(function() { state.swappedIndex = -1; },450);
+    }
+
+    function guessGroup(query) {
+      const text = normalize(query);
+      if (/(abdo|gainage|core|russian twist|crunch|releve de genoux|hollow hold|cardio|velo|bike|burpee|mountain climber|sprint)/.test(text)) return "core";
+      if (/(ischio|fess|kick.?back|back extension|leg curl|adduction|abduction|glute|hip thrust|pull.?through|deadlift|souleve de terre roumain)/.test(text)) return "posterior";
+      if (/(quadri|quads|step.?up|squat|fente|mollet|calf|leg press|leg extension|lunge)/.test(text)) return "quads";
+      if (/(dos|biceps|curl|tirage|rowing|\brow\b|traction|lat pulldown|pull.?up|face pull|chin.?up)/.test(text)) return "pull";
+      if (/(pec|poitrine|couche|pompe|triceps|epaule|shoulder|lateral raise|fly|developpe|bench|chest press|push.?up|\bdip\b)/.test(text)) return "push";
+      return "full";
+    }
+    function findSearchSource(query) {
+      const needle = normalize(query);
+      const ranked = EXERCISES.map(function(exercise) {
+        const name = normalize(exercise.name);
+        const bits = [name].concat(exercise.muscles.map(normalize),[normalize(exercise.equipment)]);
+        let score = name === needle ? 100 : name.includes(needle) ? 50 : needle.includes(name) ? 30 : 0;
+        if (!score && bits.some(function(bit) { return bit.includes(needle) || needle.includes(bit); })) score = 10;
+        return {exercise:exercise,score:score};
+      }).filter(function(entry) { return entry.score > 0 && canDo(entry.exercise); }).sort(function(a,b) { return b.score - a.score; });
+      return ranked.length ? ranked[0].exercise : null;
+    }
+    function quickAlternatives(query) {
+      const source = findSearchSource(query);
+      let pool;
+      let heading;
+      if (source) {
+        heading = source.name;
+        const direct = source.alternatives.map(exerciseById).filter(function(item) { return item && canDo(item); });
+        pool = direct.concat(EXERCISES.filter(function(item) {
+          return item.id !== source.id && canDo(item) &&
+            item.muscles.some(function(muscle) { return source.muscles.includes(muscle); });
+        }));
+        pool = pool.filter(function(item,index,array) {
+          return normalize(item.equipment) !== normalize(source.equipment) &&
+            array.findIndex(function(other) { return other.id === item.id; }) === index;
+        });
+        const nearbyGroups = {
+          push:["push","full"],pull:["pull","full"],posterior:["posterior","quads","full"],
+          quads:["quads","posterior","full"],full:["full","push","pull","posterior","quads","core"],
+          core:["core","full"]
+        };
+        const fallback = EXERCISES.filter(function(item) {
+          return item.id !== source.id && canDo(item) &&
+            (nearbyGroups[source.group] || [source.group]).includes(item.group) &&
+            normalize(item.equipment) !== normalize(source.equipment);
+        });
+        pool = pool.concat(fallback.filter(function(item) {
+          return !pool.some(function(existing) { return existing.id === item.id; });
+        }));
+      } else {
+        const inferredGroup = guessGroup(query);
+        heading = query.trim() + " · recherche libre";
+        pool = EXERCISES.filter(function(item) { return item.group === inferredGroup && canDo(item); });
+      }
+      const alternatives = shuffle(pool).slice(0,3);
+      return {source:source,heading:heading,alternatives:alternatives};
+    }
+    function renderQuickResults(query) {
+      const results = quickAlternatives(query);
+      const container = $("#quick-results");
+      container.classList.remove("hidden");
+      if (!results.alternatives.length) {
+        container.innerHTML = '<p class="text-sm text-zinc-400">Aucune option disponible pour ce niveau. Essaie un autre nom ou change de niveau.</p>';
+        return;
+      }
+      container.innerHTML = '<div class="mb-3 flex flex-wrap items-center justify-between gap-2"><p class="text-xs font-bold uppercase tracking-wider text-zinc-400">Options disponibles pour <span class="text-white">' + escapeHtml(results.heading) + '</span></p><button id="clear-quick" class="text-xs font-bold text-zinc-500 hover:text-white" type="button">Effacer</button></div>' +
+        '<div class="grid gap-2 sm:grid-cols-3">' + results.alternatives.map(function(item) {
+          const plan = prescriptions(item);
+          return '<div class="rounded-xl border border-white/[.08] bg-black/20 p-3"><div class="flex items-center gap-2"><span class="text-xl">' + escapeHtml(item.icon) + '</span><span class="text-sm font-extrabold">' + escapeHtml(item.name) + '</span></div><p class="mt-2 text-xs text-zinc-500">' + escapeHtml(item.equipment) + ' · ' + plan.sets + ' × ' + escapeHtml(plan.reps) + '</p></div>';
+        }).join("") + '</div>';
+      $("#clear-quick").addEventListener("click",function() {
+        container.classList.add("hidden");
+        $("#quick-input").value = "";
+      });
+    }
+    function showToast(message) {
+      const region = $("#toast-region");
+      region.innerHTML = '<div class="toast rounded-2xl border border-sky-400/25 bg-zinc-900 px-4 py-3 text-center text-sm font-bold text-zinc-100 shadow-xl">' + escapeHtml(message) + '</div>';
+      window.clearTimeout(state.toastTimer);
+      state.toastTimer = window.setTimeout(function() { region.innerHTML = ""; },2600);
+    }
+    let audioContext = null;
+    function prepareAudio() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      try {
+        if (!audioContext) audioContext = new AudioContextClass();
+        if (audioContext.state === "suspended") audioContext.resume();
+      } catch (error) {
+        audioContext = null;
+      }
+    }
+    function playTimerBeep() {
+      if (!audioContext) return;
+      try {
+        const now = audioContext.currentTime;
+        [880,660].forEach(function(frequency,index) {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const start = now + index * .22;
+          oscillator.type = "sine";
+          oscillator.frequency.value = frequency;
+          gain.gain.setValueAtTime(.0001,start);
+          gain.gain.exponentialRampToValueAtTime(.16,start + .025);
+          gain.gain.exponentialRampToValueAtTime(.0001,start + .18);
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+          oscillator.start(start);
+          oscillator.stop(start + .2);
+        });
+      } catch (error) {
+        /* Le signal visuel reste actif si l'audio est indisponible. */
+      }
+    }
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remainder = seconds % 60;
+      return String(minutes).padStart(2,"0") + ":" + String(remainder).padStart(2,"0");
+    }
+    function renderTimer() {
+      $("#timer-display").textContent = formatTime(state.timer.remaining);
+      if (document.activeElement !== $("#timer-custom")) $("#timer-custom").value = String(state.timer.duration);
+      $("#timer-toggle").textContent = state.timer.interval !== null ? "Pause" : state.timer.finished ? "Relancer" : "Démarrer";
+      $("#timer-widget").classList.toggle("timer-done",state.timer.finished);
+      $("#timer-display").classList.toggle("text-sky-400",!state.timer.finished);
+      $("#timer-display").classList.toggle("text-white",state.timer.finished);
+    }
+    function stopTimer() {
+      if (state.timer.interval !== null) window.clearInterval(state.timer.interval);
+      state.timer.interval = null;
+      state.timer.endAt = 0;
+    }
+    function setTimer(seconds) {
+      stopTimer();
+      const duration = Math.max(1,Math.min(3599,Math.floor(Number(seconds) || 1)));
+      state.timer.duration = duration;
+      state.timer.remaining = duration;
+      state.timer.finished = false;
+      $("#timer-status").textContent = "Repos réglé sur " + duration + " secondes.";
+      renderTimer();
+    }
+    function finishTimer() {
+      stopTimer();
+      state.timer.remaining = 0;
+      state.timer.finished = true;
+      renderTimer();
+      $("#timer-status").textContent = "Temps de repos terminé.";
+      showToast("Temps de repos terminé.");
+      playTimerBeep();
+    }
+    function timerTick() {
+      state.timer.remaining = Math.max(0,Math.ceil((state.timer.endAt - Date.now()) / 1000));
+      if (state.timer.remaining <= 0) {
+        finishTimer();
+      } else {
+        renderTimer();
+      }
+    }
+    function toggleTimer() {
+      if (state.timer.interval !== null) {
+        state.timer.remaining = Math.max(0,Math.ceil((state.timer.endAt - Date.now()) / 1000));
+        stopTimer();
+        renderTimer();
+        $("#timer-status").textContent = "Chronomètre en pause à " + formatTime(state.timer.remaining) + ".";
+        return;
+      }
+      prepareAudio();
+      if (state.timer.finished || state.timer.remaining <= 0) {
+        state.timer.remaining = state.timer.duration;
+        state.timer.finished = false;
+      }
+      state.timer.endAt = Date.now() + state.timer.remaining * 1000;
+      state.timer.interval = window.setInterval(timerTick,200);
+      $("#timer-status").textContent = "Chronomètre démarré.";
+      renderTimer();
+    }
+    function adjustTimer(delta) {
+      if (state.timer.interval === null) {
+        setTimer(state.timer.duration + delta);
+        return;
+      }
+      state.timer.duration = Math.max(1,Math.min(3599,state.timer.duration + delta));
+      state.timer.remaining = Math.max(0,Math.min(3599,state.timer.remaining + delta));
+      if (state.timer.remaining === 0) {
+        finishTimer();
+        return;
+      }
+      state.timer.endAt = Date.now() + state.timer.remaining * 1000;
+      renderTimer();
+    }
+    function setLevel(level, changed) {
+      if (!LEVELS.includes(level)) level = "beginner";
+      state.level = level;
+      localStorageSet("muscleo-level",level);
+      $$("[data-level]").forEach(function(button) {
+        button.setAttribute("aria-pressed",String(button.dataset.level === level));
+      });
+      $("#level-hint").textContent = LEVEL_HINTS[level];
+      if (changed) generateWorkout();
+    }
+    function setGroup(group) {
+      state.group = group;
+      $$("[data-group]").forEach(function(button) {
+        button.setAttribute("aria-pressed",String(button.dataset.group === group));
+      });
+    }
+    function populateExerciseList() {
+      $("#exercise-list").innerHTML = EXERCISES.map(function(exercise) {
+        return '<option value="' + escapeHtml(exercise.name) + '"></option>';
+      }).join("");
+    }
+    function groupSetsByMuscle() {
+      const totals = new Map();
+      state.workout.forEach(function(exercise) {
+        if (!exercise.setsDone) return;
+        exercise.muscles.forEach(function(muscle) {
+          totals.set(muscle,(totals.get(muscle) || 0) + exercise.setsDone);
+        });
+      });
+      return Array.from(totals.entries()).sort(function(a,b) { return a[0].localeCompare(b[0],"fr"); });
+    }
+    function openVictory() {
+      const score = totalTonnage();
+      $("#victory-total").textContent = formatKg(score) + " kg";
+      const doneExercises = state.workout.filter(function(exercise) { return exercise.setsDone > 0; }).length;
+      $("#victory-copy").textContent = validatedCount() + " séries validées sur " +
+        state.workout.reduce(function(total,exercise) { return total + exercise.prescribedSets; },0) +
+        " prévues · " + doneExercises + " exercices travaillés.";
+      $("#total-sets-label").textContent = validatedCount() + " séries effectuées";
+      const rows = groupSetsByMuscle();
+      $("#muscle-summary").innerHTML = rows.length
+        ? rows.map(function(row) {
+            return '<div class="flex items-center justify-between gap-3 rounded-xl border border-white/[.07] bg-black/20 px-3 py-2.5"><span class="text-sm font-semibold text-zinc-300">' + escapeHtml(row[0]) + '</span><span class="shrink-0 text-sm font-black text-sky-400">' + row[1] + ' série' + (row[1] === 1 ? "" : "s") + '</span></div>';
+          }).join("")
+        : '<p class="rounded-xl border border-white/[.07] bg-black/20 px-3 py-4 text-sm text-zinc-500 sm:col-span-2">Aucune série n’a encore été validée.</p>';
+      const modal = $("#victory-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      $("#close-modal").focus();
+    }
+    function closeVictory() {
+      const modal = $("#victory-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      $("#finish-btn").focus();
+    }
+    function initDate() {
+      $("#today-label").textContent = new Intl.DateTimeFormat("fr-FR",{weekday:"long",day:"numeric",month:"long"}).format(new Date());
+    }
+
+    $$("[data-level]").forEach(function(button) {
+      button.addEventListener("click",function() {
+        if (button.dataset.level === state.level) return;
+        setLevel(button.dataset.level,true);
+      });
+    });
+    $$("[data-group]").forEach(function(button) {
+      button.addEventListener("click",function() { setGroup(button.dataset.group); });
+    });
+    $("#generate-btn").addEventListener("click",generateWorkout);
+    listEl.addEventListener("click",function(event) {
+      const planButton = event.target.closest("[data-planb]");
+      if (planButton) {
+        swapExercise(Number(planButton.dataset.planb));
+        return;
+      }
+      const setMinus = event.target.closest(".set-minus");
+      const setPlus = event.target.closest(".set-plus");
+      if (setMinus || setPlus) {
+        const index = Number((setMinus || setPlus).dataset.index);
+        const exercise = state.workout[index];
+        if (!exercise) return;
+        exercise.setsDone = Math.max(0,Math.min(exercise.prescribedSets,exercise.setsDone + (setPlus ? 1 : -1)));
+        const card = $("#exercise-card-" + index);
+        $(".sets-done",card).textContent = exercise.setsDone + " / " + exercise.prescribedSets;
+        $(".set-minus",card).disabled = exercise.setsDone === 0;
+        $(".set-plus",card).disabled = exercise.setsDone >= exercise.prescribedSets;
+        card.classList.toggle("validated-card",exercise.setsDone > 0);
+        updateSummary();
+        return;
+      }
+    });
+    listEl.addEventListener("input",function(event) {
+      const weightInput = event.target.closest("[data-weight]");
+      if (weightInput) {
+        const index = Number(weightInput.dataset.weight);
+        if (!state.workout[index]) return;
+        const weight = weightInput.value === "" ? 0 : Number(weightInput.value);
+        if (!Number.isFinite(weight)) return;
+        state.workout[index].weight = Math.max(0,weight);
+        updateSummary();
+        return;
+      }
+      const repsInput = event.target.closest("[data-reps]");
+      if (!repsInput) return;
+      const index = Number(repsInput.dataset.reps);
+      if (!state.workout[index]) return;
+      const reps = Number(repsInput.value);
+      state.workout[index].repsDone = Number.isFinite(reps) ? Math.max(0,Math.min(100,reps)) : 0;
+      updateSummary();
+    });
+    $("#quick-form").addEventListener("submit",function(event) {
+      event.preventDefault();
+      const query = $("#quick-input").value.trim();
+      if (!query) {
+        showToast("Saisis le nom d'un exercice à remplacer.");
+        $("#quick-input").focus();
+        return;
+      }
+      renderQuickResults(query);
+    });
+    $("#quick-input").addEventListener("input",function(event) {
+      const query = event.target.value.trim();
+      if (query.length >= 2) renderQuickResults(query);
+      else $("#quick-results").classList.add("hidden");
+    });
+    $("#timer-toggle").addEventListener("click",toggleTimer);
+    $("#timer-reset").addEventListener("click",function() { setTimer(state.timer.duration); });
+    $("#timer-minus").addEventListener("click",function() { adjustTimer(-10); });
+    $("#timer-plus").addEventListener("click",function() { adjustTimer(10); });
+    $$(".timer-preset").forEach(function(button) {
+      button.addEventListener("click",function() { setTimer(Number(button.dataset.seconds)); });
+    });
+    $("#timer-apply").addEventListener("click",function() {
+      const seconds = Number($("#timer-custom").value);
+      if (!Number.isInteger(seconds) || seconds < 1 || seconds > 3599) {
+        showToast("Entre une durée comprise entre 1 et 3 599 secondes.");
+        $("#timer-custom").focus();
+        return;
+      }
+      setTimer(seconds);
+    });
+    $("#timer-custom").addEventListener("keydown",function(event) {
+      if (event.key === "Enter") $("#timer-apply").click();
+    });
+    $("#finish-btn").addEventListener("click",openVictory);
+    $("#close-modal").addEventListener("click",closeVictory);
+    $("#modal-close-cta").addEventListener("click",closeVictory);
+    $("#modal-new-session").addEventListener("click",function() {
+      closeVictory();
+      generateWorkout();
+      window.scrollTo({top:0,behavior:"smooth"});
+    });
+    $("#victory-modal").addEventListener("click",function(event) {
+      if (event.target === $("#victory-modal")) closeVictory();
+    });
+    document.addEventListener("keydown",function(event) {
+      if (event.key === "Escape" && !$("#victory-modal").classList.contains("hidden")) closeVictory();
+    });
+    populateExerciseList();
+    initDate();
+    setLevel(state.level,false);
+    setGroup(state.group);
+    renderTimer();
+    generateWorkout();
+  </script>
+</body>
+</html>
