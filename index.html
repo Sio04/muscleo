@@ -191,6 +191,24 @@
       <div id="quick-results" class="hidden border-t border-white/[.07] px-5 py-4 sm:px-6" aria-live="polite"></div>
     </section>
 
+    <section id="recovery-module" class="panel mb-8 p-5 sm:p-6" aria-labelledby="recovery-heading">
+      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="eyebrow mb-1">Récupération & fatigue</p>
+          <h2 id="recovery-heading" class="text-lg font-extrabold">État des groupes musculaires</h2>
+          <p class="mt-1 max-w-2xl text-xs leading-5 text-zinc-500">Repères estimatifs enregistrés sur cet appareil, selon ton niveau et les séries validées.</p>
+        </div>
+        <span class="rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-semibold text-zinc-500">Vert : disponible · Bleu : récupération</span>
+      </div>
+      <div id="recovery-grid" class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" aria-live="polite"></div>
+      <div id="recovery-alert" class="mt-4 hidden rounded-2xl border border-rose-400/25 bg-rose-400/[.06] p-4" role="alert" aria-live="assertive">
+        <p class="text-xs font-black uppercase tracking-wider text-rose-300">Avis coach · récupération incomplète</p>
+        <p id="recovery-alert-copy" class="mt-2 text-sm leading-6 text-zinc-300"></p>
+        <button id="recovery-pivot-btn" class="mt-3 min-h-11 rounded-xl bg-sky-400 px-4 text-sm font-black text-sky-950" type="button">Pivoter vers un autre groupe</button>
+      </div>
+      <p class="mt-3 text-[10px] leading-5 text-zinc-600">Ces délais sont des repères prudents, pas un diagnostic. La récupération varie avec le sommeil, l’effort, l’expérience et les douleurs ressenties.</p>
+    </section>
+
     <section aria-labelledby="session-heading">
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
@@ -265,6 +283,10 @@
         </div>
         <div id="muscle-summary" class="grid gap-2 sm:grid-cols-2"></div>
         <p class="mt-3 text-[11px] leading-5 text-zinc-500">Tonnage = séries validées × répétitions saisies × poids utilisé (× 2 si les reps sont indiquées par côté). Une série polyarticulaire est comptée pour chaque muscle sollicité. Les exercices chronométrés ou à distance figurent dans le détail des séries, mais pas dans le tonnage en kg.</p>
+      </section>
+      <section class="mt-6" aria-labelledby="recovery-summary-heading">
+        <h3 id="recovery-summary-heading" class="mb-3 text-sm font-extrabold">Récupération estimée après cette séance</h3>
+        <div id="recovery-finish-summary" class="grid gap-2 sm:grid-cols-2"></div>
       </section>
       <div class="mt-6 flex flex-col gap-2 sm:flex-row">
         <button id="modal-close-cta" class="primary-btn w-full px-4" type="button">Fermer le bilan</button>
@@ -403,6 +425,31 @@
       full:"Full Body",
       core:"Cardio / Abdos"
     };
+    const RECOVERY_ZONES = [
+      {key:"chest",label:"Pectoraux",aliases:["Pectoraux","Haut des pectoraux"],hours:[48,60,72]},
+      {key:"back",label:"Dos",aliases:["Dos","Haut du dos"],hours:[48,60,72]},
+      {key:"shoulders",label:"Épaules",aliases:["Épaules","Épaules arrière","Dentelé antérieur","Coiffe des rotateurs"],hours:[36,48,60]},
+      {key:"triceps",label:"Triceps",aliases:["Triceps"],hours:[24,36,48]},
+      {key:"biceps",label:"Biceps",aliases:["Biceps"],hours:[24,36,48]},
+      {key:"forearms",label:"Avant-bras",aliases:["Avant-bras"],hours:[24,36,48]},
+      {key:"traps",label:"Trapèzes",aliases:["Trapèzes"],hours:[36,48,60]},
+      {key:"quads",label:"Quadriceps",aliases:["Quadriceps","Jambes"],hours:[48,60,72]},
+      {key:"hamstrings",label:"Ischio-jambiers",aliases:["Ischio-jambiers"],hours:[48,60,72]},
+      {key:"glutes",label:"Fessiers",aliases:["Fessiers"],hours:[48,60,72]},
+      {key:"core",label:"Abdos / gainage",aliases:["Abdos","Gainage","Obliques"],hours:[24,36,48]},
+      {key:"hipFlexors",label:"Fléchisseurs de hanche",aliases:["Fléchisseurs de hanche"],hours:[24,36,48]},
+      {key:"calves",label:"Mollets",aliases:["Mollets"],hours:[36,48,60]},
+      {key:"adductors",label:"Adducteurs",aliases:["Adducteurs"],hours:[36,48,60]},
+      {key:"abductors",label:"Abducteurs",aliases:["Abducteurs"],hours:[36,48,60]}
+    ];
+    const GROUP_RECOVERY_KEYS = {
+      push:["chest","shoulders","triceps"],
+      pull:["back","biceps","shoulders","forearms","traps"],
+      posterior:["hamstrings","glutes","abductors"],
+      quads:["quads","hamstrings","glutes","calves","adductors","abductors"],
+      full:["chest","back","quads","hamstrings","glutes","shoulders","core"],
+      core:["core","hipFlexors","quads","shoulders","forearms"]
+    };
     const ROUTINE_TAGS = {
       beginner:["Descente contrôlée pendant 3 s","Pause d'1 s en position de contraction","Garde 2 répétitions en réserve","Contrôle chaque répétition sans élan"],
       intermediate:["Tempo 3 s à la descente","Pause de 2 s en position étirée","Dernière série en dégressive","Ralentis les 3 dernières répétitions"],
@@ -414,6 +461,9 @@
       count:Math.max(4,Math.min(9,parseInt(localStorageGet("muscleo-count") || "5",10) || 5)),
       workout:[],
       recent:loadRecentIds(),
+      recovery:loadRecovery(),
+      recoveryPivot:"",
+      recoveryWarnings:[],
       quickSource:null,
       swappedIndex:-1,
       toastTimer:null,
@@ -436,6 +486,20 @@
         return Array.isArray(saved) ? saved : [];
       } catch (error) {
         return [];
+      }
+    }
+    function loadRecovery() {
+      try {
+        const saved = JSON.parse(localStorageGet("muscleo-recovery") || "{}");
+        if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+        const validKeys = new Set(RECOVERY_ZONES.map(function(zone) { return zone.key; }));
+        return Object.keys(saved).reduce(function(result,key) {
+          const record = saved[key];
+          if (validKeys.has(key) && record && Number.isFinite(record.expiresAt) && Number.isFinite(record.lastWorkedAt)) result[key] = record;
+          return result;
+        },{});
+      } catch (error) {
+        return {};
       }
     }
     function escapeHtml(value) {
@@ -492,6 +556,108 @@
     }
     function hasMuscle(exercise,muscle) {
       return exercise.muscles.some(function(item) { return normalize(item) === normalize(muscle); });
+    }
+    function recoveryZoneForMuscle(muscle) {
+      const normalized = normalize(muscle);
+      return RECOVERY_ZONES.find(function(zone) {
+        return zone.aliases.some(function(alias) { return normalize(alias) === normalized; });
+      }) || null;
+    }
+    function workoutRecoveryKeys(exercises) {
+      const keys = new Set();
+      exercises.forEach(function(exercise) {
+        exercise.muscles.forEach(function(muscle) {
+          const zone = recoveryZoneForMuscle(muscle);
+          if (zone) keys.add(zone.key);
+        });
+      });
+      return Array.from(keys);
+    }
+    function recoveryRemainingMs(key,now) {
+      const record = state.recovery[key];
+      return record ? Math.max(0,record.expiresAt - (now || Date.now())) : 0;
+    }
+    function formatRecoveryTime(milliseconds) {
+      const hours = Math.ceil(milliseconds / 3600000);
+      const days = Math.floor(hours / 24);
+      const remainder = hours % 24;
+      return days ? days + " j " + remainder + " h restantes" : hours + " h restantes";
+    }
+    function recoveryCardHtml(zone,now) {
+      const record = state.recovery[zone.key];
+      const remaining = recoveryRemainingMs(zone.key,now);
+      const hasHistory = Boolean(record);
+      const active = remaining > 0;
+      const cardClass = active
+        ? "border-sky-400/25 bg-sky-400/[.045]"
+        : hasHistory ? "border-emerald-400/20 bg-emerald-400/[.035]" : "border-white/[.07] bg-black/20";
+      const statusClass = active ? "text-sky-300" : hasHistory ? "text-emerald-300" : "text-zinc-600";
+      const status = active ? "En récupération · " + formatRecoveryTime(remaining) : hasHistory ? "Récupéré" : "Aucun historique";
+      return '<div class="rounded-xl border ' + cardClass + ' px-3 py-2.5"><span class="block truncate text-xs font-bold text-zinc-300">' + escapeHtml(zone.label) + '</span><span class="mt-1 block text-[10px] font-semibold ' + statusClass + '">' + escapeHtml(status) + '</span></div>';
+    }
+    function recoveryHoursFor(zone,exercise) {
+      const level = Math.max(0,levelIndex(state.level));
+      const base = zone.hours[level] || zone.hours[0];
+      const highVolumeBonus = exercise.setsDone >= 3 ? 6 : 0;
+      return Math.min(72,base + highVolumeBonus);
+    }
+    function recordExerciseRecovery(exercise,now) {
+      if (!exercise || exercise.setsDone < 1) return false;
+      const timestamp = now || Date.now();
+      workoutRecoveryKeys([exercise]).forEach(function(key) {
+        const zone = RECOVERY_ZONES.find(function(item) { return item.key === key; });
+        const proposedExpiry = timestamp + recoveryHoursFor(zone,exercise) * 3600000;
+        const previousExpiry = state.recovery[key] ? state.recovery[key].expiresAt : 0;
+        state.recovery[key] = {expiresAt:Math.max(previousExpiry,proposedExpiry),lastWorkedAt:timestamp};
+      });
+      localStorageSet("muscleo-recovery",JSON.stringify(state.recovery));
+      return true;
+    }
+    function recordWorkoutRecovery() {
+      const timestamp = Date.now();
+      let changed = false;
+      state.workout.forEach(function(exercise) {
+        if (exercise.setsDone > 0) changed = recordExerciseRecovery(exercise,timestamp) || changed;
+      });
+      return changed;
+    }
+    function suggestRecoveryPivot(blockedKeys) {
+      const blocked = new Set(blockedKeys);
+      return Object.keys(GROUP_NAMES).filter(function(group) { return group !== state.group; }).sort(function(a,b) {
+        const aBlocked = (GROUP_RECOVERY_KEYS[a] || []).filter(function(key) { return blocked.has(key) || recoveryRemainingMs(key) > 0; }).length;
+        const bBlocked = (GROUP_RECOVERY_KEYS[b] || []).filter(function(key) { return blocked.has(key) || recoveryRemainingMs(key) > 0; }).length;
+        return aBlocked - bBlocked;
+      })[0] || "";
+    }
+    function renderRecoveryModule(targetKeys,refreshWarnings) {
+      const now = Date.now();
+      $("#recovery-grid").innerHTML = RECOVERY_ZONES.map(function(zone) { return recoveryCardHtml(zone,now); }).join("");
+      const keys = targetKeys || (state.workout.length ? workoutRecoveryKeys(state.workout) : GROUP_RECOVERY_KEYS[state.group] || []);
+      if (refreshWarnings || targetKeys) state.recoveryWarnings = keys.filter(function(key) { return recoveryRemainingMs(key,now) > 0; });
+      const blocked = state.recoveryWarnings.map(function(key) {
+        const zone = RECOVERY_ZONES.find(function(item) { return item.key === key; });
+        const remaining = recoveryRemainingMs(key,now);
+        return zone && remaining > 0 ? {zone:zone,remaining:remaining} : null;
+      }).filter(Boolean);
+      const alert = $("#recovery-alert");
+      if (!blocked.length) {
+        alert.classList.add("hidden");
+        state.recoveryPivot = "";
+        return;
+      }
+      const summary = blocked.map(function(item) { return item.zone.label + " (" + formatRecoveryTime(item.remaining) + ")"; }).join(", ");
+      $("#recovery-alert-copy").textContent = "Zones concernées : " + summary + ". La récupération, dont la synthèse protéique, peut encore être en cours. Les retravailler intensément avant de retrouver de bonnes sensations peut diminuer la qualité de la séance; la fatigue résiduelle peut aussi affecter la technique. Ce repère est indicatif, pas un avis médical.";
+      state.recoveryPivot = suggestRecoveryPivot(blocked.map(function(item) { return item.zone.key; }));
+      $("#recovery-pivot-btn").textContent = state.recoveryPivot ? "Pivoter vers " + GROUP_NAMES[state.recoveryPivot] : "Choisir un autre groupe";
+      alert.classList.remove("hidden");
+    }
+    function renderRecoveryFinishSummary() {
+      const worked = state.workout.filter(function(exercise) { return exercise.setsDone > 0; });
+      const keys = new Set(workoutRecoveryKeys(worked));
+      const zones = RECOVERY_ZONES.filter(function(zone) { return keys.has(zone.key); });
+      $("#recovery-finish-summary").innerHTML = zones.length
+        ? zones.map(function(zone) { return recoveryCardHtml(zone,Date.now()); }).join("")
+        : '<p class="rounded-xl border border-white/[.07] bg-black/20 px-3 py-3 text-sm text-zinc-500 sm:col-span-2">Valide au moins une série pour enregistrer une estimation de récupération.</p>';
     }
     function movementFamily(exercise) { return MOVEMENT_FAMILIES[exercise.id] || exercise.id; }
     function pickOne(pool,chosen) {
@@ -668,6 +834,7 @@
       if (!state.workout.length) {
         listEl.innerHTML = '<div class="panel p-8 text-center text-sm text-zinc-400">Choisis un niveau et génère ta séance.</div>';
         updateSummary();
+        renderRecoveryModule(GROUP_RECOVERY_KEYS[state.group] || [],true);
         return;
       }
       listEl.innerHTML = state.workout.map(function(exercise,index) {
@@ -706,6 +873,7 @@
         '</article>';
       }).join("");
       updateSummary();
+      renderRecoveryModule(workoutRecoveryKeys(state.workout),true);
     }
     function findPlanB(exercise,index) {
       function doesNotDuplicatePattern(candidate) {
@@ -947,6 +1115,7 @@
       $$("[data-group]").forEach(function(button) {
         button.setAttribute("aria-pressed",String(button.dataset.group === group));
       });
+      renderRecoveryModule(GROUP_RECOVERY_KEYS[group] || [],true);
     }
     function setCount(count,regenerate) {
       state.count = Math.max(4,Math.min(9,Math.round(Number(count) || 5)));
@@ -972,6 +1141,9 @@
       return Array.from(totals.entries()).sort(function(a,b) { return a[0].localeCompare(b[0],"fr"); });
     }
     function openVictory() {
+      recordWorkoutRecovery();
+      renderRecoveryModule();
+      renderRecoveryFinishSummary();
       const score = totalTonnage();
       $("#victory-total").textContent = formatKg(score) + " kg";
       const doneExercises = state.workout.filter(function(exercise) { return exercise.setsDone > 0; }).length;
@@ -1013,6 +1185,12 @@
       button.addEventListener("click",function() { setCount(button.dataset.count,true); });
     });
     $("#generate-btn").addEventListener("click",generateWorkout);
+    $("#recovery-pivot-btn").addEventListener("click",function() {
+      if (!state.recoveryPivot) return;
+      const nextGroup = state.recoveryPivot;
+      setGroup(nextGroup);
+      generateWorkout();
+    });
     listEl.addEventListener("click",function(event) {
       const planButton = event.target.closest("[data-planb]");
       if (planButton) {
@@ -1025,13 +1203,16 @@
         const index = Number((setMinus || setPlus).dataset.index);
         const exercise = state.workout[index];
         if (!exercise) return;
+        const previousSets = exercise.setsDone;
         exercise.setsDone = Math.max(0,Math.min(exercise.prescribedSets,exercise.setsDone + (setPlus ? 1 : -1)));
+        if (exercise.setsDone > previousSets) recordExerciseRecovery(exercise);
         const card = $("#exercise-card-" + index);
         $(".sets-done",card).textContent = exercise.setsDone + " / " + exercise.prescribedSets;
         $(".set-minus",card).disabled = exercise.setsDone === 0;
         $(".set-plus",card).disabled = exercise.setsDone >= exercise.prescribedSets;
         card.classList.toggle("validated-card",exercise.setsDone > 0);
         updateSummary();
+        renderRecoveryModule();
         return;
       }
     });
@@ -1109,6 +1290,10 @@
     setCount(state.count,false);
     renderTimer();
     generateWorkout();
+    window.setInterval(function() { renderRecoveryModule(); },60000);
+    document.addEventListener("visibilitychange",function() {
+      if (!document.hidden) renderRecoveryModule();
+    });
   </script>
 </body>
 </html>
