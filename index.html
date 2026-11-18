@@ -81,13 +81,17 @@
     .progress-track { background: rgba(255,255,255,.09); }
     .progress-fill { background: linear-gradient(90deg, #0ea5e9, #38bdf8); transition: width .5s ease; }
     .timer-done { border-color: rgba(56,189,248,.8) !important; box-shadow: 0 0 30px rgba(56,189,248,.22); }
-    .body-base { fill: #27272a; stroke: #52525b; stroke-width: 1.5; }
-    .body-limb { fill: none; stroke: #27272a; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
-    .body-limb-outline { fill: none; stroke: #52525b; stroke-width: 20; stroke-linecap: round; stroke-linejoin: round; }
-    .muscle-zone { cursor: pointer; outline: none; }
-    .muscle-zone path, .muscle-zone ellipse { fill: var(--muscle-fill, #3f3f46); stroke: #09090b; stroke-width: 1.2; transition: fill .2s ease, stroke .2s ease, filter .2s ease; }
-    .muscle-zone:hover path, .muscle-zone:hover ellipse, .muscle-zone:focus-visible path, .muscle-zone:focus-visible ellipse { stroke: #f4f4f5; stroke-width: 2.4; filter: brightness(1.18); }
-    .muscle-zone.selected path, .muscle-zone.selected ellipse { stroke: white; stroke-width: 2.4; filter: drop-shadow(0 0 4px rgba(255,255,255,.65)); }
+    .heatmap-view-btn[aria-pressed="true"] { background: rgba(56,189,248,.18); color: #7dd3fc; box-shadow: inset 0 0 0 1px rgba(56,189,248,.3); }
+    #muscle-heatmap { transition: max-width .25s ease; }
+    #muscle-heatmap.single-view { max-width: 260px; }
+    .body-base { fill: url(#body-volume); stroke: #a1a1aa; stroke-width: 1.2; }
+    .body-limb { fill: none; stroke: url(#body-volume); stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+    .body-limb-outline { fill: none; stroke: #71717a; stroke-width: 21; stroke-linecap: round; stroke-linejoin: round; }
+    .muscle-zone { cursor: pointer; outline: none; filter: url(#muscle-depth); }
+    .muscle-zone path, .muscle-zone ellipse { fill: var(--muscle-fill, url(#muscle-metallic)); stroke: rgba(9,9,11,.88); stroke-width: 1.4; transition: fill .25s ease, stroke .2s ease, filter .2s ease; }
+    .muscle-zone:hover path, .muscle-zone:hover ellipse, .muscle-zone:focus-visible path, .muscle-zone:focus-visible ellipse { stroke: #e0f2fe; stroke-width: 2.5; filter: brightness(1.16) drop-shadow(0 0 5px rgba(56,189,248,.55)); }
+    .muscle-zone.in-recovery path, .muscle-zone.in-recovery ellipse { filter: drop-shadow(0 0 4px rgba(239,68,68,.46)); }
+    .muscle-zone.selected path, .muscle-zone.selected ellipse { stroke: #f0f9ff; stroke-width: 2.6; filter: drop-shadow(0 0 6px rgba(56,189,248,.8)); }
     ::selection { background: rgba(56,189,248,.35); }
     @media (min-width: 640px) { .shell { width: min(100% - 48px, 1080px); } }
     @media (prefers-reduced-motion: reduce) {
@@ -205,81 +209,117 @@
           <h2 id="recovery-heading" class="text-lg font-extrabold">État des groupes musculaires</h2>
           <p class="mt-1 max-w-2xl text-xs leading-5 text-zinc-500">Repères estimatifs enregistrés sur cet appareil, selon ton niveau et les séries validées.</p>
         </div>
-        <span class="rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-semibold text-zinc-500">Vert : disponible · Bleu : récupération</span>
+        <span class="rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-semibold text-zinc-500">Métal : repos · Bleu : sollicité · Rouge : forte fatigue</span>
       </div>
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_230px]">
         <div class="rounded-2xl border border-white/[.07] bg-black/20 p-2 sm:p-4">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-xs font-extrabold text-zinc-300">Vue anatomique</p>
+            <div class="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-black/30 p-1" role="group" aria-label="Choisir la vue du corps">
+              <button class="heatmap-view-btn rounded-lg px-2.5 py-2 text-[10px] font-extrabold text-zinc-400 transition hover:text-white" data-body-view="front" aria-pressed="false" type="button">Face</button>
+              <button class="heatmap-view-btn rounded-lg px-2.5 py-2 text-[10px] font-extrabold text-zinc-400 transition hover:text-white" data-body-view="back" aria-pressed="false" type="button">Dos</button>
+              <button class="heatmap-view-btn rounded-lg px-2.5 py-2 text-[10px] font-extrabold text-zinc-400 transition hover:text-white" data-body-view="both" aria-pressed="true" type="button">Deux vues</button>
+            </div>
+          </div>
           <svg id="muscle-heatmap" class="mx-auto block w-full max-w-[560px]" viewBox="0 0 460 460" role="group" aria-label="Heatmap musculaire interactive, vues de face et de dos">
+            <defs>
+              <radialGradient id="body-volume" cx="30%" cy="18%" r="85%">
+                <stop offset="0" stop-color="#71717a"/><stop offset=".38" stop-color="#3f3f46"/><stop offset="1" stop-color="#18181b"/>
+              </radialGradient>
+              <radialGradient id="muscle-metallic" cx="28%" cy="18%" r="92%">
+                <stop offset="0" stop-color="#f4f4f5"/><stop offset=".2" stop-color="#a1a1aa"/><stop offset=".58" stop-color="#52525b"/><stop offset="1" stop-color="#27272a"/>
+              </radialGradient>
+              <radialGradient id="muscle-blue" cx="28%" cy="18%" r="95%">
+                <stop offset="0" stop-color="#e0f2fe"/><stop offset=".22" stop-color="#7dd3fc"/><stop offset=".62" stop-color="#38bdf8"/><stop offset="1" stop-color="#075985"/>
+              </radialGradient>
+              <linearGradient id="muscle-warm" x1="0" y1="0" x2=".85" y2="1">
+                <stop offset="0" stop-color="#fed7aa"/><stop offset=".35" stop-color="#fb923c"/><stop offset="1" stop-color="#c2410c"/>
+              </linearGradient>
+              <radialGradient id="muscle-red" cx="28%" cy="18%" r="95%">
+                <stop offset="0" stop-color="#fecaca"/><stop offset=".3" stop-color="#f87171"/><stop offset=".72" stop-color="#ef4444"/><stop offset="1" stop-color="#7f1d1d"/>
+              </radialGradient>
+              <filter id="muscle-depth" x="-25%" y="-25%" width="150%" height="155%" color-interpolation-filters="sRGB">
+                <feDropShadow dx="0" dy="3" stdDeviation="2.2" flood-color="#000000" flood-opacity=".7"/>
+              </filter>
+            </defs>
             <text x="115" y="20" text-anchor="middle" fill="#a1a1aa" font-size="11" font-weight="800" letter-spacing="1.4">FACE</text>
             <text x="345" y="20" text-anchor="middle" fill="#a1a1aa" font-size="11" font-weight="800" letter-spacing="1.4">DOS</text>
-            <g aria-label="Silhouette de face">
+            <g id="body-front" aria-label="Silhouette de face">
               <circle class="body-base" cx="115" cy="43" r="17" />
               <path class="body-base" d="M106 61 L124 61 L127 76 Q145 77 154 90 L148 111 L140 104 L145 151 Q148 174 140 193 L146 217 L136 229 L115 235 L94 229 L84 217 L90 193 Q82 174 85 151 L90 104 L82 111 L76 90 Q85 77 103 76 Z" />
               <path class="body-limb-outline" d="M82 91 Q68 104 62 126 L53 159 L47 185 M148 91 Q162 104 168 126 L177 159 L183 185" />
               <path class="body-limb" d="M82 91 Q68 104 62 126 L53 159 L47 185 M148 91 Q162 104 168 126 L177 159 L183 185" />
               <path class="body-limb-outline" d="M101 226 Q94 254 96 282 L101 319 L98 371 L96 411 M129 226 Q136 254 134 282 L129 319 L132 371 L134 411" />
               <path class="body-limb" d="M101 226 Q94 254 96 282 L101 319 L98 371 L96 411 M129 226 Q136 254 134 282 L129 319 L132 371 L134 411" />
-              <g class="muscle-zone" data-zone-key="shoulders" tabindex="0" role="button" aria-label="Épaules, face">
+              <g id="muscle-deltoids-anterior-front" class="muscle-zone" data-zone-key="shoulders" tabindex="0" role="button" aria-label="Deltoïdes antérieurs, face">
                 <ellipse cx="84" cy="91" rx="12" ry="14" /><ellipse cx="146" cy="91" rx="12" ry="14" />
               </g>
-              <g class="muscle-zone" data-zone-key="chest" tabindex="0" role="button" aria-label="Pectoraux">
+              <g id="muscle-deltoids-lateral-front" class="muscle-zone" data-zone-key="shoulders" tabindex="0" role="button" aria-label="Deltoïdes latéraux, face">
+                <path d="M76 88 Q81 82 88 86 L85 101 L79 106 L74 98 Z" /><path d="M154 86 Q161 82 166 88 L168 98 L161 106 L155 101 Z" />
+              </g>
+              <g id="muscle-pectorals" class="muscle-zone" data-zone-key="chest" tabindex="0" role="button" aria-label="Pectoraux">
                 <path d="M94 91 Q103 84 113 91 L112 109 Q103 115 94 108 Z" /><path d="M117 91 Q127 84 136 91 L136 108 Q127 115 118 109 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="biceps" tabindex="0" role="button" aria-label="Biceps, face">
+              <g id="muscle-biceps-front" class="muscle-zone" data-zone-key="biceps" tabindex="0" role="button" aria-label="Biceps, face">
                 <path d="M64 117 Q70 110 77 115 L72 145 Q68 151 61 147 Z" /><path d="M153 115 Q160 110 166 117 L169 147 Q162 151 158 145 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="forearms" tabindex="0" role="button" aria-label="Avant-bras, face">
+              <g id="muscle-forearms-front" class="muscle-zone" data-zone-key="forearms" tabindex="0" role="button" aria-label="Avant-bras, face">
                 <path d="M55 151 Q61 148 67 153 L57 181 Q53 186 47 182 Z" /><path d="M163 153 Q169 148 175 151 L183 182 Q177 186 173 181 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="core" tabindex="0" role="button" aria-label="Abdos et obliques">
+              <g id="muscle-abdominals" class="muscle-zone" data-zone-key="core" tabindex="0" role="button" aria-label="Grand droit de l'abdomen">
                 <path d="M105 117 L114 118 L113 143 L105 143 Z M117 118 L126 117 L126 143 L117 143 Z M105 146 L113 146 L113 170 L105 170 Z M117 146 L126 146 L126 170 L117 170 Z M105 173 L113 173 L112 194 L103 192 Z M118 173 L126 173 L127 192 L118 194 Z" />
+              </g>
+              <g id="muscle-obliques-front" class="muscle-zone" data-zone-key="core" tabindex="0" role="button" aria-label="Obliques, face">
                 <path d="M91 119 Q98 119 101 126 L98 157 L91 171 Q87 154 89 136 Z M139 119 Q132 119 129 126 L132 157 L139 171 Q143 154 141 136 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="hipFlexors" tabindex="0" role="button" aria-label="Fléchisseurs de hanche">
+              <g id="muscle-hip-flexors" class="muscle-zone" data-zone-key="hipFlexors" tabindex="0" role="button" aria-label="Fléchisseurs de hanche">
                 <path d="M96 197 Q105 195 112 200 L110 222 L98 226 L91 216 Z" /><path d="M134 197 Q125 195 118 200 L120 222 L132 226 L139 216 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="abductors" tabindex="0" role="button" aria-label="Abducteurs">
+              <g id="muscle-abductors-front" class="muscle-zone" data-zone-key="abductors" tabindex="0" role="button" aria-label="Abducteurs, face">
                 <path d="M91 218 Q99 220 103 231 L99 264 L92 270 L86 247 Z" /><path d="M139 218 Q131 220 127 231 L131 264 L138 270 L144 247 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="quads" tabindex="0" role="button" aria-label="Quadriceps, face">
+              <g id="muscle-quadriceps" class="muscle-zone" data-zone-key="quads" tabindex="0" role="button" aria-label="Quadriceps, face">
                 <path d="M101 233 Q110 232 113 239 L109 276 L105 308 L99 316 L94 281 Z" /><path d="M129 233 Q120 232 117 239 L121 276 L125 308 L131 316 L136 281 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="adductors" tabindex="0" role="button" aria-label="Adducteurs">
+              <g id="muscle-adductors" class="muscle-zone" data-zone-key="adductors" tabindex="0" role="button" aria-label="Adducteurs">
                 <path d="M112 238 L117 241 L116 294 L111 302 L108 270 Z" /><path d="M118 241 L123 238 L127 270 L124 302 L119 294 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="calves" tabindex="0" role="button" aria-label="Mollets, face">
+              <g id="muscle-calves-front" class="muscle-zone" data-zone-key="calves" tabindex="0" role="button" aria-label="Mollets, face">
                 <path d="M99 322 Q105 317 109 324 L107 360 L103 382 L98 374 Z" /><path d="M131 322 Q125 317 121 324 L123 360 L127 382 L132 374 Z" />
               </g>
             </g>
-            <g transform="translate(230 0)" aria-label="Silhouette de dos">
+            <g id="body-back" transform="translate(230 0)" aria-label="Silhouette de dos">
               <circle class="body-base" cx="115" cy="43" r="17" />
               <path class="body-base" d="M106 61 L124 61 L127 76 Q145 77 154 90 L148 111 L140 104 L145 151 Q148 174 140 193 L146 217 L136 229 L115 235 L94 229 L84 217 L90 193 Q82 174 85 151 L90 104 L82 111 L76 90 Q85 77 103 76 Z" />
               <path class="body-limb-outline" d="M82 91 Q68 104 62 126 L53 159 L47 185 M148 91 Q162 104 168 126 L177 159 L183 185" />
               <path class="body-limb" d="M82 91 Q68 104 62 126 L53 159 L47 185 M148 91 Q162 104 168 126 L177 159 L183 185" />
               <path class="body-limb-outline" d="M101 226 Q94 254 96 282 L101 319 L98 371 L96 411 M129 226 Q136 254 134 282 L129 319 L132 371 L134 411" />
               <path class="body-limb" d="M101 226 Q94 254 96 282 L101 319 L98 371 L96 411 M129 226 Q136 254 134 282 L129 319 L132 371 L134 411" />
-              <g class="muscle-zone" data-zone-key="shoulders" tabindex="0" role="button" aria-label="Épaules arrière, dos">
+              <g id="muscle-deltoids-posterior-back" class="muscle-zone" data-zone-key="shoulders" tabindex="0" role="button" aria-label="Deltoïdes postérieurs, dos">
                 <ellipse cx="84" cy="91" rx="12" ry="14" /><ellipse cx="146" cy="91" rx="12" ry="14" />
               </g>
-              <g class="muscle-zone" data-zone-key="traps" tabindex="0" role="button" aria-label="Trapèzes">
+              <g id="muscle-trapezius" class="muscle-zone" data-zone-key="traps" tabindex="0" role="button" aria-label="Trapèzes">
                 <path d="M106 76 L115 82 L124 76 L139 89 L132 108 L115 116 L98 108 L91 89 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="back" tabindex="0" role="button" aria-label="Dos et dorsaux">
-                <path d="M94 111 Q104 113 112 119 L109 166 L101 188 L91 171 L87 137 Z" /><path d="M136 111 Q126 113 118 119 L121 166 L129 188 L139 171 L143 137 Z" />
+              <g id="muscle-latissimus-dorsi" class="muscle-zone" data-zone-key="back" tabindex="0" role="button" aria-label="Grand dorsal">
+                <path d="M94 111 Q104 113 112 119 L109 166 L101 178 L91 164 L87 137 Z" /><path d="M136 111 Q126 113 118 119 L121 166 L129 178 L139 164 L143 137 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="triceps" tabindex="0" role="button" aria-label="Triceps, dos">
+              <g id="muscle-lumbar-erectors" class="muscle-zone" data-zone-key="back" tabindex="0" role="button" aria-label="Lombaires">
+                <path d="M105 169 Q115 173 125 169 L126 191 Q115 198 104 191 Z" />
+              </g>
+              <g id="muscle-triceps-back" class="muscle-zone" data-zone-key="triceps" tabindex="0" role="button" aria-label="Triceps, dos">
                 <path d="M61 116 Q68 109 76 115 L71 146 Q67 152 60 147 Z" /><path d="M154 115 Q162 109 169 116 L170 147 Q163 152 159 146 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="forearms" tabindex="0" role="button" aria-label="Avant-bras, dos">
+              <g id="muscle-forearms-back" class="muscle-zone" data-zone-key="forearms" tabindex="0" role="button" aria-label="Avant-bras, dos">
                 <path d="M54 151 Q61 148 67 153 L57 181 Q53 186 47 182 Z" /><path d="M163 153 Q169 148 175 151 L183 182 Q177 186 173 181 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="glutes" tabindex="0" role="button" aria-label="Fessiers">
+              <g id="muscle-gluteals" class="muscle-zone" data-zone-key="glutes" tabindex="0" role="button" aria-label="Fessiers">
                 <path d="M94 194 Q104 190 114 199 L113 226 Q104 234 95 226 L89 211 Z" /><path d="M136 194 Q126 190 116 199 L117 226 Q126 234 135 226 L141 211 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="hamstrings" tabindex="0" role="button" aria-label="Ischio-jambiers, dos">
+              <g id="muscle-hamstrings" class="muscle-zone" data-zone-key="hamstrings" tabindex="0" role="button" aria-label="Ischio-jambiers, dos">
                 <path d="M99 233 Q108 231 113 238 L109 275 L105 308 L99 316 L94 281 Z" /><path d="M131 233 Q122 231 117 238 L121 275 L125 308 L131 316 L136 281 Z" />
               </g>
-              <g class="muscle-zone" data-zone-key="calves" tabindex="0" role="button" aria-label="Mollets, dos">
+              <g id="muscle-calves-back" class="muscle-zone" data-zone-key="calves" tabindex="0" role="button" aria-label="Mollets, dos">
                 <path d="M99 322 Q105 317 109 324 L107 360 L103 382 L98 374 Z" /><path d="M131 322 Q125 317 121 324 L123 360 L127 382 L132 374 Z" />
               </g>
             </g>
@@ -291,8 +331,8 @@
             <p class="text-xs font-extrabold">Solicitation de la séance</p>
             <div class="mt-3 grid grid-cols-2 gap-2 text-[10px] font-semibold text-zinc-400">
               <span class="flex items-center gap-2"><i class="h-3 w-3 rounded-full bg-zinc-700"></i>Non sollicité</span>
-              <span class="flex items-center gap-2"><i class="h-3 w-3 rounded-full bg-green-500"></i>Léger</span>
-              <span class="flex items-center gap-2"><i class="h-3 w-3 rounded-full bg-yellow-400"></i>Modéré</span>
+              <span class="flex items-center gap-2"><i class="h-3 w-3 rounded-full bg-sky-400"></i>Léger / moyen</span>
+              <span class="flex items-center gap-2"><i class="h-3 w-3 rounded-full bg-orange-400"></i>Élevé</span>
               <span class="flex items-center gap-2"><i class="h-3 w-3 rounded-full bg-red-500"></i>Élevé</span>
             </div>
           </div>
@@ -707,12 +747,13 @@
       });
       return totals;
     }
-    function heatColor(sets) {
-      if (sets < 1) return "#3f3f46";
-      const progress = Math.min(1,sets / 4);
-      const stops = progress < .5 ? [34,197,94,234,179,8,progress * 2] : [234,179,8,239,68,68,(progress - .5) * 2];
-      const channels = [0,1,2].map(function(index) { return Math.round(stops[index] + (stops[index + 3] - stops[index]) * stops[6]); });
-      return "rgb(" + channels.join(",") + ")";
+    function heatGradient(sets,remaining) {
+      if (sets >= 4) return "url(#muscle-red)";
+      if (sets >= 3) return "url(#muscle-warm)";
+      if (sets > 0) return "url(#muscle-blue)";
+      if (remaining > 36 * 3600000) return "url(#muscle-red)";
+      if (remaining > 0) return "url(#muscle-blue)";
+      return "url(#muscle-metallic)";
     }
     function heatBand(sets) {
       if (sets < 1) return "Non sollicité";
@@ -732,10 +773,17 @@
         const record = state.recovery[key];
         const remaining = recoveryRemainingMs(key);
         const recoveryText = remaining > 0 ? "En récupération, " + formatRecoveryTime(remaining) : record ? "Récupéré" : "Aucun historique de récupération";
-        element.style.setProperty("--muscle-fill",heatColor(sets));
+        element.style.setProperty("--muscle-fill",heatGradient(sets,remaining));
+        element.classList.toggle("in-recovery",remaining > 0);
         element.classList.toggle("selected",state.selectedHeatZone === key);
         element.setAttribute("aria-pressed",String(state.selectedHeatZone === key));
         element.setAttribute("aria-label",(zone ? zone.label : key) + " : " + sets + " série" + (sets === 1 ? "" : "s") + " validée" + (sets === 1 ? "" : "s") + ", " + heatBand(sets) + ". " + recoveryText + ".");
+        let tooltip = element.querySelector("title");
+        if (!tooltip) {
+          tooltip = document.createElementNS("http://www.w3.org/2000/svg","title");
+          element.insertBefore(tooltip,element.firstChild);
+        }
+        tooltip.textContent = (zone ? zone.label : key) + " · " + sets + " série" + (sets === 1 ? "" : "s") + " · " + recoveryText;
       });
       const selected = RECOVERY_ZONES.find(function(zone) { return zone.key === state.selectedHeatZone; }) || RECOVERY_ZONES[0];
       const selectedSets = totals.get(selected.key) || 0;
@@ -750,6 +798,17 @@
       if (!RECOVERY_ZONES.some(function(zone) { return zone.key === key; })) return;
       state.selectedHeatZone = key;
       renderHeatmap();
+    }
+    function setHeatmapView(view) {
+      const views = {front:"0 0 230 460",back:"230 0 230 460",both:"0 0 460 460"};
+      if (!views[view]) return;
+      const svg = $("#muscle-heatmap");
+      svg.setAttribute("viewBox",views[view]);
+      svg.dataset.view = view;
+      svg.classList.toggle("single-view",view !== "both");
+      $$("[data-body-view]").forEach(function(button) {
+        button.setAttribute("aria-pressed",String(button.dataset.bodyView === view));
+      });
     }
     function recoveryHoursFor(zone,exercise) {
       const level = Math.max(0,levelIndex(state.level));
@@ -1348,9 +1407,20 @@
       setGroup(nextGroup);
       generateWorkout();
     });
+    $$('[data-body-view]').forEach(function(button) {
+      button.addEventListener("click",function() { setHeatmapView(button.dataset.bodyView); });
+    });
     $("#muscle-heatmap").addEventListener("click",function(event) {
       const zone = event.target.closest("[data-zone-key]");
       if (zone) selectHeatmapZone(zone.dataset.zoneKey);
+    });
+    $("#muscle-heatmap").addEventListener("pointerover",function(event) {
+      const zone = event.target.closest("[data-zone-key]");
+      if (zone && zone.dataset.zoneKey !== state.selectedHeatZone) selectHeatmapZone(zone.dataset.zoneKey);
+    });
+    $("#muscle-heatmap").addEventListener("focusin",function(event) {
+      const zone = event.target.closest("[data-zone-key]");
+      if (zone && zone.dataset.zoneKey !== state.selectedHeatZone) selectHeatmapZone(zone.dataset.zoneKey);
     });
     $("#muscle-heatmap").addEventListener("keydown",function(event) {
       const zone = event.target.closest("[data-zone-key]");
