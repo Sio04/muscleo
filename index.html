@@ -110,7 +110,7 @@
       <p class="eyebrow mb-3">Ton entraînement, ta progression</p>
       <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 class="max-w-3xl text-4xl font-black leading-[1.02] tracking-tight sm:text-6xl">Progresse !<br><span class="text-sky-400">Séance après séance !</span></h1>
+          <h1 class="max-w-3xl text-4xl font-black leading-[1.02] tracking-tight sm:text-6xl">Progresse !<br><span class="text-sky-400">Séance après séance.</span></h1>
           <p class="mt-4 max-w-xl text-sm leading-6 text-zinc-400 sm:text-base">Des séances adaptées à ton niveau, un plan B quand la salle est bondée, et un suivi précis.</p>
         </div>
         <div class="hidden rounded-2xl border border-sky-400/20 bg-sky-400/[.06] px-4 py-3 text-right sm:block">
@@ -154,6 +154,20 @@
         <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="quads" aria-pressed="false">Quads (Quadriceps)</button>
         <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="full" aria-pressed="false">Full Body</button>
         <button class="group-btn px-2 text-xs sm:text-sm" type="button" data-group="core" aria-pressed="false">Cardio / Abdos</button>
+      </div>
+      <div class="mb-4 rounded-2xl border border-white/[.07] bg-black/20 p-3">
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <span class="text-xs font-bold text-zinc-300">Nombre d'exercices</span>
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">4 à 9 mouvements</span>
+        </div>
+        <div class="grid grid-cols-6 gap-2" role="group" aria-label="Nombre d'exercices dans la séance">
+          <button class="group-btn text-sm" type="button" data-count="4" aria-pressed="false">4</button>
+          <button class="group-btn text-sm" type="button" data-count="5" aria-pressed="true">5</button>
+          <button class="group-btn text-sm" type="button" data-count="6" aria-pressed="false">6</button>
+          <button class="group-btn text-sm" type="button" data-count="7" aria-pressed="false">7</button>
+          <button class="group-btn text-sm" type="button" data-count="8" aria-pressed="false">8</button>
+          <button class="group-btn text-sm" type="button" data-count="9" aria-pressed="false">9</button>
+        </div>
       </div>
       <button id="generate-btn" class="primary-btn w-full px-5 sm:w-auto sm:min-w-64" type="button">
         <span aria-hidden="true">↻</span> Générer une séance
@@ -372,6 +386,7 @@
     const state = {
       level: localStorageGet("muscleo-level") || localStorageGet("forge-level") || "beginner",
       group:"push",
+      count:Math.max(4,Math.min(9,parseInt(localStorageGet("muscleo-count") || "5",10) || 5)),
       workout:[],
       recent:loadRecentIds(),
       quickSource:null,
@@ -445,20 +460,155 @@
       const available = shuffle(ROUTINE_TAGS[state.level]);
       indices.forEach(function(index,position) { items[index].variant = available[position]; });
     }
-    function generateWorkout() {
-      const pool = EXERCISES.filter(function(exercise) { return exercise.group === state.group && canDo(exercise); });
-      const unseen = pool.filter(function(exercise) { return !state.recent.includes(exercise.id); });
-      let chosen = shuffle(unseen.length >= 5 ? unseen : pool).slice(0,5);
-      if (chosen.length < 5) {
-        chosen = shuffle(pool).slice(0,5);
+    function idPool(ids) {
+      return ids.map(exerciseById).filter(function(exercise) { return exercise && canDo(exercise); });
+    }
+    function hasMuscle(exercise,muscle) {
+      return exercise.muscles.some(function(item) { return normalize(item) === normalize(muscle); });
+    }
+    function pickOne(pool,chosen) {
+      const used = new Set(chosen.map(function(exercise) { return exercise.id; }));
+      const available = pool.filter(function(exercise) { return canDo(exercise) && !used.has(exercise.id); });
+      if (!available.length) return null;
+      const fresh = available.filter(function(exercise) { return !state.recent.includes(exercise.id); });
+      return shuffle(fresh.length ? fresh : available)[0];
+    }
+    function addFrom(pool,chosen) {
+      const exercise = pickOne(pool,chosen);
+      if (exercise) chosen.push(exercise);
+      return exercise;
+    }
+    function fillFromPools(chosen,pools,target) {
+      let progressed = true;
+      while (chosen.length < target && progressed) {
+        progressed = false;
+        pools.forEach(function(pool) {
+          if (chosen.length >= target) return;
+          if (addFrom(pool,chosen)) progressed = true;
+        });
       }
+      return chosen;
+    }
+    function pushWorkout(count) {
+      const chosen = [];
+      const compound = idPool(["bench","db-bench","incline-db","incline-machine","incline-pushup","chest-machine","shoulder-db","shoulder-bar","shoulder-machine","dips","close-grip"]);
+      const chestIsolation = idPool(["cable-fly","pec-deck","db-fly","high-low-fly"]);
+      const shoulderIsolation = idPool(["lateral-db","lateral-cable","lateral-machine"]);
+      const tricepsIsolation = idPool(["triceps-rope","overhead-triceps"]);
+      addFrom(compound,chosen);
+      addFrom(compound,chosen);
+      addFrom(chestIsolation,chosen);
+      if (count === 4) {
+        addFrom(shuffle([shoulderIsolation,tricepsIsolation])[0],chosen);
+      } else {
+        addFrom(shoulderIsolation,chosen);
+        addFrom(tricepsIsolation,chosen);
+      }
+      return fillFromPools(chosen,[compound,chestIsolation,shoulderIsolation,tricepsIsolation],count);
+    }
+    function pullWorkout(count) {
+      const chosen = [];
+      const vertical = idPool(["lat-pulldown","assisted-pullup"]);
+      const horizontal = idPool(["barbell-row","cable-row","one-arm-row","chest-row"]);
+      const biceps = idPool(["barbell-curl","hammer-curl","preacher-curl"]);
+      const rearShoulder = idPool(["face-pull","reverse-fly","band-pull"]);
+      addFrom(vertical,chosen);
+      addFrom(horizontal,chosen);
+      addFrom(biceps,chosen);
+      if (chosen.length < count) addFrom(horizontal,chosen);
+      if (chosen.length < count) addFrom(rearShoulder,chosen);
+      return fillFromPools(chosen,[vertical,horizontal,biceps,rearShoulder],count);
+    }
+    function posteriorWorkout(count) {
+      const chosen = [];
+      const hamstrings = idPool(["rdl","db-rdl","leg-curl","lying-leg-curl","back-extension","kettlebell-deadlift"]);
+      const glutes = idPool(["hip-thrust","glute-bridge","pull-through","kickback","back-extension-glute","abduction","band-walk","step-up","bulgarian-split","side-lunge","lunges"]);
+      const targets = {hamstrings:Math.ceil(count / 2),glutes:Math.floor(count / 2)};
+      const usedCounts = {hamstrings:0,glutes:0};
+      const beginWithHamstrings = Math.random() < .5;
+      for (let index = 0; index < count; index += 1) {
+        const first = (index % 2 === 0) === beginWithHamstrings ? "hamstrings" : "glutes";
+        const second = first === "hamstrings" ? "glutes" : "hamstrings";
+        const firstPool = first === "hamstrings" ? hamstrings : glutes;
+        const secondPool = second === "hamstrings" ? hamstrings : glutes;
+        let selected = null;
+        if (usedCounts[first] < targets[first]) selected = addFrom(firstPool,chosen) ? first : null;
+        if (!selected && usedCounts[second] < targets[second]) selected = addFrom(secondPool,chosen) ? second : null;
+        if (!selected) {
+          const alternative = first === "hamstrings" ? glutes : hamstrings;
+          const alternativePool = alternative === "hamstrings" ? hamstrings : glutes;
+          selected = addFrom(alternativePool,chosen) ? alternative : null;
+        }
+        if (!selected) break;
+        usedCounts[selected] += 1;
+      }
+      return fillFromPools(chosen,[hamstrings,glutes],count);
+    }
+    function quadsWorkout(count) {
+      const chosen = [];
+      const bilateral = idPool(["squat","leg-press","goblet-squat","hack-squat","db-thruster","barbell-thruster"]);
+      const unilateral = idPool(["lunges","step-up","bulgarian-split","side-lunge"]);
+      const isolation = idPool(["leg-extension"]);
+      const dynamicQuad = idPool(["mountain-climber","bike-sprint","bear-crawl","burpee"]);
+      addFrom(bilateral,chosen);
+      addFrom(unilateral,chosen);
+      addFrom(isolation,chosen);
+      const primaryCount = new Set(bilateral.concat(unilateral,isolation).map(function(exercise) { return exercise.id; })).size;
+      fillFromPools(chosen,[bilateral,unilateral,isolation],Math.min(count,primaryCount));
+      if (chosen.length < count) fillFromPools(chosen,[dynamicQuad],count);
+      return chosen;
+    }
+    function fullBodyWorkout(count) {
+      const chosen = [];
+      const roles = [
+        {muscle:"Dos",preferred:idPool(["lat-pulldown","cable-row","barbell-row","one-arm-row","assisted-pullup","chest-row"])},
+        {muscle:"Pectoraux",preferred:idPool(["bench","db-bench","incline-db","incline-machine","chest-machine","incline-pushup"])},
+        {muscle:"Quadriceps",preferred:idPool(["squat","leg-press","goblet-squat","hack-squat","lunges","step-up","bulgarian-split","db-thruster","barbell-thruster"])},
+        {muscle:"Épaules",preferred:idPool(["shoulder-db","shoulder-bar","shoulder-machine","lateral-db","lateral-cable","lateral-machine"])},
+        {muscle:"Abdos",preferred:idPool(["plank","dead-bug","cable-crunch","russian-twist","reverse-crunch","hanging-knee-raise","side-plank","hollow-hold"])}
+      ];
+      const mandatoryRoles = count < 5 ? roles.slice(0,count) : roles;
+      mandatoryRoles.forEach(function(role) {
+        const matching = EXERCISES.filter(function(exercise) { return canDo(exercise) && hasMuscle(exercise,role.muscle); });
+        addFrom(role.preferred.concat(matching),chosen);
+      });
+      const rolePools = roles.map(function(role) {
+        return role.preferred.concat(EXERCISES.filter(function(exercise) {
+          return canDo(exercise) && hasMuscle(exercise,role.muscle);
+        }));
+      });
+      return fillFromPools(chosen,rolePools,count);
+    }
+    function cardioCoreWorkout(count) {
+      const chosen = [];
+      const coreStrength = EXERCISES.filter(function(exercise) {
+        return exercise.group === "core" && exercise.id !== "bike-sprint" && canDo(exercise);
+      });
+      const dynamic = idPool(["bike-sprint","mountain-climber","burpee","battle-ropes","bear-crawl","farmer-carry","kettlebell-carry"]);
+      for (let index = 0; index < count; index += 1) {
+        const firstPool = index % 2 === 0 ? coreStrength : dynamic;
+        const secondPool = index % 2 === 0 ? dynamic : coreStrength;
+        if (!addFrom(firstPool,chosen) && !addFrom(secondPool,chosen)) break;
+      }
+      return fillFromPools(chosen,[coreStrength,dynamic],count);
+    }
+    function balancedWorkout() {
+      if (state.group === "push") return pushWorkout(state.count);
+      if (state.group === "pull") return pullWorkout(state.count);
+      if (state.group === "posterior") return posteriorWorkout(state.count);
+      if (state.group === "quads") return quadsWorkout(state.count);
+      if (state.group === "full") return fullBodyWorkout(state.count);
+      return cardioCoreWorkout(state.count);
+    }
+    function generateWorkout() {
+      const chosen = balancedWorkout().slice(0,state.count);
       state.workout = chosen.map(function(exercise) { return makeWorkoutItem(exercise,""); });
       pickVariants(state.workout);
       state.recent = chosen.map(function(exercise) { return exercise.id; });
       localStorageSet("muscleo-recent",JSON.stringify(state.recent));
       state.swappedIndex = -1;
       renderWorkout();
-      showToast("Nouvelle séance " + GROUP_NAMES[state.group] + " prête.");
+      showToast("Séance " + GROUP_NAMES[state.group] + " · " + state.workout.length + " exercices prête.");
     }
     function averageReps(reps) {
       if (/\d+\s*(?:s|sec)\b/i.test(reps) || /\d+\s*m\b/i.test(reps)) return 0;
@@ -762,6 +912,14 @@
         button.setAttribute("aria-pressed",String(button.dataset.group === group));
       });
     }
+    function setCount(count,regenerate) {
+      state.count = Math.max(4,Math.min(9,Math.round(Number(count) || 5)));
+      localStorageSet("muscleo-count",String(state.count));
+      $$("[data-count]").forEach(function(button) {
+        button.setAttribute("aria-pressed",String(Number(button.dataset.count) === state.count));
+      });
+      if (regenerate) generateWorkout();
+    }
     function populateExerciseList() {
       $("#exercise-list").innerHTML = EXERCISES.map(function(exercise) {
         return '<option value="' + escapeHtml(exercise.name) + '"></option>';
@@ -814,6 +972,9 @@
     });
     $$("[data-group]").forEach(function(button) {
       button.addEventListener("click",function() { setGroup(button.dataset.group); });
+    });
+    $$("[data-count]").forEach(function(button) {
+      button.addEventListener("click",function() { setCount(button.dataset.count,true); });
     });
     $("#generate-btn").addEventListener("click",generateWorkout);
     listEl.addEventListener("click",function(event) {
@@ -909,8 +1070,10 @@
     initDate();
     setLevel(state.level,false);
     setGroup(state.group);
+    setCount(state.count,false);
     renderTimer();
     generateWorkout();
   </script>
 </body>
 </html>
+
